@@ -73,17 +73,22 @@ function ShopDashboard() {
       subtitle={shop.shop_name}
       title="Dispatch"
       actions={
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="h-11 rounded-full px-5 font-semibold shadow-soft">
-              <Plus className="mr-1.5 h-4 w-4" /> New order
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Create delivery request</DialogTitle></DialogHeader>
-            <NewOrderForm shop={shop} onCreated={() => { setOpen(false); load(); }} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button variant="outline" size="icon" className="h-11 w-11 rounded-full" onClick={() => navigate({ to: "/shop/settings" })} aria-label="Edit shop">
+            <Settings className="h-4 w-4" />
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button className="h-11 rounded-full px-5 font-semibold shadow-soft">
+                <Plus className="mr-1.5 h-4 w-4" /> New order
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader><DialogTitle>Create delivery request</DialogTitle></DialogHeader>
+              <NewOrderForm shop={shop} onCreated={() => { setOpen(false); load(); }} />
+            </DialogContent>
+          </Dialog>
+        </div>
       }
     >
       {shop.approval_status !== "approved" && (
