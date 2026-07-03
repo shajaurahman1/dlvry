@@ -1,7 +1,7 @@
 import { useRouter } from "@tanstack/react-router";
 import { ChevronLeft } from "lucide-react";
 
-export function BackButton() {
+export function BackButton({ className = "" }: { className?: string }) {
   const router = useRouter();
   const onClick = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -15,7 +15,7 @@ export function BackButton() {
       type="button"
       onClick={onClick}
       aria-label="Go back"
-      className="fixed left-4 top-4 z-50 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card/90 text-foreground shadow-soft backdrop-blur transition hover:bg-accent"
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-soft transition hover:bg-accent ${className}`}
     >
       <ChevronLeft className="h-4 w-4" />
     </button>
