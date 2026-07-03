@@ -77,7 +77,14 @@ function AuthPage() {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
-      toast.error(msg.includes("Invalid login") ? "Wrong email or password" : msg);
+      const lower = msg.toLowerCase();
+      if (lower.includes("invalid login") || lower.includes("invalid credentials")) {
+        toast.error(tab === "signin" ? "Gmail account not found." : "Wrong email or password");
+      } else if (lower.includes("user not found")) {
+        toast.error("Gmail account not found.");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setBusy(false);
     }
