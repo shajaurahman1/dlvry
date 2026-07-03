@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Clock, CheckCircle2, PackageCheck, Phone } from "lucide-react";
+import { Plus, Clock, CheckCircle2, PackageCheck, Settings } from "lucide-react";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo } from "@/lib/orders";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
