@@ -19,8 +19,14 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+
 const schema = z.object({
-  email: z.string().trim().email("Enter a valid email"),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .refine((v) => gmailRegex.test(v), "Please enter a valid Gmail address."),
   password: z.string().min(6, "At least 6 characters"),
   fullName: z.string().trim().max(100).optional(),
 });
