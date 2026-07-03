@@ -23,8 +23,7 @@ export type LocationState =
 export async function readGeoPermission(): Promise<PermissionState> {
   try {
     if (typeof navigator === "undefined" || !("permissions" in navigator)) return "unknown";
-    // @ts-expect-error Safari types
-    const res = await navigator.permissions.query({ name: "geolocation" });
+    const res = await navigator.permissions.query({ name: "geolocation" as PermissionName });
     return (res.state as PermissionState) ?? "unknown";
   } catch {
     return "unknown";
