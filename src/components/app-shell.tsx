@@ -10,10 +10,12 @@ export function AppShell({ children, title, subtitle, actions }: { children: Rea
   const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-background">
-      <BackButton />
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-5 py-4">
-          <Link to="/"><DlvryLogo className="text-xl" /></Link>
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-2 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <BackButton />
+            <Link to="/"><DlvryLogo className="text-xl" /></Link>
+          </div>
           <button
             onClick={async () => { await signOut(); navigate({ to: "/" }); }}
             className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
