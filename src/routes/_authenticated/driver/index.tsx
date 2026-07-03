@@ -261,17 +261,29 @@ function LocationBlock({ state }: { state: "loading" | "denied" | "unavailable" 
           <MapPin className="h-7 w-7" />
         </div>
         <h1 className="mt-6 text-2xl font-black">
-          {state === "loading" ? "Locating you…" : "Location required"}
+          {state === "loading"
+            ? "Locating you…"
+            : state === "denied"
+              ? "Location permission blocked"
+              : "Location unavailable"}
         </h1>
+        {state === "loading" ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Waiting for a GPS fix. Please allow the browser prompt if it appears — we'll continue automatically.
+          </p>
+        ) : state === "denied" ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            You've blocked location for this site. Tap the lock icon in your browser's address bar, set Location to Allow, then tap Try again.
+          </p>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Your device can't share a location right now. Check that GPS / Location Services are on and try again.
+          </p>
+        )}
         {state !== "loading" && (
-          <>
-            <p className="mt-3 text-sm text-muted-foreground">
-              Location access is required to receive nearby delivery requests. Please enable Location Services to continue.
-            </p>
-            <Button onClick={() => window.location.reload()} className="mt-6 rounded-full">
-              Try again
-            </Button>
-          </>
+          <Button onClick={() => window.location.reload()} className="mt-6 rounded-full">
+            Try again
+          </Button>
         )}
       </div>
     </div>

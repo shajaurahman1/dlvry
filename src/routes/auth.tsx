@@ -19,8 +19,14 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+
 const schema = z.object({
-  email: z.string().trim().email("Enter a valid email"),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .refine((v) => gmailRegex.test(v), "Please enter a valid Gmail address."),
   password: z.string().min(6, "At least 6 characters"),
   fullName: z.string().trim().max(100).optional(),
 });
@@ -71,7 +77,14 @@ function AuthPage() {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
-      toast.error(msg.includes("Invalid login") ? "Wrong email or password" : msg);
+      const lower = msg.toLowerCase();
+      if (lower.includes("invalid login") || lower.includes("invalid credentials")) {
+        toast.error(tab === "signin" ? "Gmail account not found." : "Wrong email or password");
+      } else if (lower.includes("user not found")) {
+        toast.error("Gmail account not found.");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setBusy(false);
     }
