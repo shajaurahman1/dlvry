@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
@@ -10,7 +10,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Store, Bike } from "lucide-react";
 import { toast } from "sonner";
-import { getPositionOnce } from "@/lib/geo";
+import type { PickedLocation } from "@/components/location-picker";
+
+const LocationPicker = lazy(() =>
+  import("@/components/location-picker").then((m) => ({ default: m.LocationPicker }))
+);
 
 export const Route = createFileRoute("/_authenticated/onboarding")({ component: Onboarding });
 
