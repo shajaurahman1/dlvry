@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
@@ -10,7 +10,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Store, Bike } from "lucide-react";
 import { toast } from "sonner";
-import { getPositionOnce } from "@/lib/geo";
+import type { PickedLocation } from "@/components/location-picker";
+
+const LocationPicker = lazy(() =>
+  import("@/components/location-picker").then((m) => ({ default: m.LocationPicker }))
+);
 
 export const Route = createFileRoute("/_authenticated/onboarding")({ component: Onboarding });
 
@@ -59,17 +63,11 @@ function ShopkeeperForm({ onDone, setBusy, busy, userId }: { onDone: () => void;
   const [f, setF] = useState({
     shop_name: "", shop_category: "grocery", address: "", phone: "", whatsapp: "", gst_number: "",
   });
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const captureLocation = async () => {
-    try {
-      const c = await getPositionOnce();
-      setCoords(c);
-      toast.success("Shop location captured");
-    } catch { toast.error("Enable location to continue"); }
-  };
+  const [coords, setCoords] = useState<PickedLocation | null>(null);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!coords) return toast.error("Capture your shop's GPS location first");
+    if (!coords) return toast.error("Choose your shop location (GPS or map) first");
     if (!f.shop_name.trim() || !f.address.trim()) return toast.error("Shop name and address are required");
     setBusy(true);
     try {
@@ -111,14 +109,16 @@ function ShopkeeperForm({ onDone, setBusy, busy, userId }: { onDone: () => void;
         </div>
         <Field label="Full address"><Textarea value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} rows={3} required /></Field>
         <Field label="GST number (optional)"><Input value={f.gst_number} onChange={(e) => setF({ ...f, gst_number: e.target.value })} /></Field>
-        <div className="rounded-xl border border-border bg-muted/40 p-4">
-          <p className="text-sm font-medium">Shop GPS location</p>
-          <p className="mt-1 text-xs text-muted-foreground">{coords ? `Captured: ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : "Required — we match drivers within 3 km of this point."}</p>
-          <Button type="button" variant="outline" onClick={captureLocation} className="mt-3 rounded-full">
-            {coords ? "Recapture location" : "Capture location"}
-          </Button>
-        </div>
-        <Button type="submit" disabled={busy} className="h-11 w-full rounded-full font-semibold">
+        <Suspense fallback={<div className="rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">Loading location tools…</div>}>
+          <LocationPicker
+            value={coords}
+            onChange={(loc) => {
+              setCoords(loc);
+              if (loc.address && !f.address) setF((prev) => ({ ...prev, address: loc.address! }));
+            }}
+          />
+        </Suspense>
+        <Button type="submit" disabled={busy || !coords} className="h-11 w-full rounded-full font-semibold">
           {busy ? "Submitting…" : "Submit for approval"}
         </Button>
       </form>

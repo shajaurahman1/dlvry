@@ -16,6 +16,7 @@ import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authentic
 import { Route as AuthenticatedShopIndexRouteImport } from './routes/_authenticated/shop/index'
 import { Route as AuthenticatedDriverIndexRouteImport } from './routes/_authenticated/driver/index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
+import { Route as AuthenticatedShopSettingsRouteImport } from './routes/_authenticated/shop/settings'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -52,11 +53,18 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedShopSettingsRoute =
+  AuthenticatedShopSettingsRouteImport.update({
+    id: '/shop/settings',
+    path: '/shop/settings',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
+  '/shop/settings': typeof AuthenticatedShopSettingsRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/driver/': typeof AuthenticatedDriverIndexRoute
   '/shop/': typeof AuthenticatedShopIndexRoute
@@ -65,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
+  '/shop/settings': typeof AuthenticatedShopSettingsRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/driver': typeof AuthenticatedDriverIndexRoute
   '/shop': typeof AuthenticatedShopIndexRoute
@@ -75,21 +84,37 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
+  '/_authenticated/shop/settings': typeof AuthenticatedShopSettingsRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/driver/': typeof AuthenticatedDriverIndexRoute
   '/_authenticated/shop/': typeof AuthenticatedShopIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/onboarding' | '/admin/' | '/driver/' | '/shop/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/onboarding'
+    | '/shop/settings'
+    | '/admin/'
+    | '/driver/'
+    | '/shop/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/onboarding' | '/admin' | '/driver' | '/shop'
+  to:
+    | '/'
+    | '/auth'
+    | '/onboarding'
+    | '/shop/settings'
+    | '/admin'
+    | '/driver'
+    | '/shop'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/onboarding'
+    | '/_authenticated/shop/settings'
     | '/_authenticated/admin/'
     | '/_authenticated/driver/'
     | '/_authenticated/shop/'
@@ -152,11 +177,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/shop/settings': {
+      id: '/_authenticated/shop/settings'
+      path: '/shop/settings'
+      fullPath: '/shop/settings'
+      preLoaderRoute: typeof AuthenticatedShopSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
+  AuthenticatedShopSettingsRoute: typeof AuthenticatedShopSettingsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedDriverIndexRoute: typeof AuthenticatedDriverIndexRoute
   AuthenticatedShopIndexRoute: typeof AuthenticatedShopIndexRoute
@@ -164,6 +197,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
+  AuthenticatedShopSettingsRoute: AuthenticatedShopSettingsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   AuthenticatedDriverIndexRoute: AuthenticatedDriverIndexRoute,
   AuthenticatedShopIndexRoute: AuthenticatedShopIndexRoute,
