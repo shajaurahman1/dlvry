@@ -1,11 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { useLiveLocation } from "@/lib/geo";
-import { MapPin, Navigation, Phone, Package } from "lucide-react";
+import { MapPin, Navigation, Phone, Package, Wallet, TrendingUp, CheckCircle2, XCircle } from "lucide-react";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo } from "@/lib/orders";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
@@ -16,17 +16,9 @@ type Driver = Tables<"drivers">;
 type Order = Tables<"orders">;
 
 interface NearbyOrder {
-  id: string;
-  shop_id: string;
-  shop_name: string;
-  pickup_address: string;
-  order_amount: number;
-  delivery_charge: number;
-  total_amount: number;
-  pickup_lat: number;
-  pickup_lng: number;
-  distance_km: number;
-  created_at: string;
+  id: string; shop_id: string; shop_name: string; pickup_address: string;
+  order_amount: number; delivery_charge: number; total_amount: number;
+  pickup_lat: number; pickup_lng: number; distance_km: number; created_at: string;
 }
 
 function DriverDashboard() {
@@ -36,6 +28,7 @@ function DriverDashboard() {
   const [driver, setDriver] = useState<Driver | null>(null);
   const [nearby, setNearby] = useState<NearbyOrder[]>([]);
   const [active, setActive] = useState<Order | null>(null);
+  const [history, setHistory] = useState<Order[]>([]);
 
   useEffect(() => {
     if (loading) return;
@@ -50,7 +43,6 @@ function DriverDashboard() {
 
   useEffect(() => { void loadDriver(); }, [loadDriver]);
 
-  // Push live location to DB
   useEffect(() => {
     if (loc.status !== "granted" || !user) return;
     void supabase.from("drivers").update({
@@ -61,13 +53,17 @@ function DriverDashboard() {
   }, [loc, user]);
 
   const loadOrders = useCallback(async () => {
-    if (!user || loc.status !== "granted") return;
-    const [{ data: rpc }, { data: mine }] = await Promise.all([
-      supabase.rpc("nearby_orders", { driver_lat: loc.coords.lat, driver_lng: loc.coords.lng }),
+    if (!user) return;
+    const [{ data: rpc }, { data: mine }, { data: hist }] = await Promise.all([
+      loc.status === "granted"
+        ? supabase.rpc("nearby_orders", { driver_lat: loc.coords.lat, driver_lng: loc.coords.lng })
+        : Promise.resolve({ data: [] as NearbyOrder[] }),
       supabase.from("orders").select("*").eq("driver_id", user.id).not("status", "in", "(delivered,cancelled)").order("created_at", { ascending: false }).limit(1),
+      supabase.from("orders").select("*").eq("driver_id", user.id).order("created_at", { ascending: false }).limit(50),
     ]);
     setNearby((rpc as NearbyOrder[]) ?? []);
     setActive((mine?.[0] as Order) ?? null);
+    setHistory((hist as Order[]) ?? []);
   }, [user, loc]);
 
   useEffect(() => {
@@ -81,7 +77,31 @@ function DriverDashboard() {
     return () => { supabase.removeChannel(ch); clearInterval(iv); };
   }, [loadOrders, user]);
 
-  // Location gate
+  const stats = useMemo(() => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const weekAgo = now.getTime() - 7 * 86400_000;
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const delivered = history.filter((o) => o.status === "delivered");
+    const cancelled = history.filter((o) => o.status === "cancelled");
+    const sum = (arr: Order[]) => arr.reduce((s, o) => s + Number(o.delivery_charge || 0), 0);
+    const inRange = (ts: number, from: number) => ts >= from;
+    const todayDel = delivered.filter((o) => inRange(new Date(o.delivered_at || o.created_at).getTime(), startOfDay));
+    const weekDel = delivered.filter((o) => inRange(new Date(o.delivered_at || o.created_at).getTime(), weekAgo));
+    const monthDel = delivered.filter((o) => inRange(new Date(o.delivered_at || o.created_at).getTime(), startOfMonth));
+    const total = delivered.length + cancelled.length;
+    return {
+      todayEarn: sum(todayDel),
+      weekEarn: sum(weekDel),
+      monthEarn: sum(monthDel),
+      lifetimeEarn: sum(delivered),
+      todayDeliveries: todayDel.length,
+      delivered: delivered.length,
+      cancelled: cancelled.length,
+      acceptRate: total > 0 ? Math.round((delivered.length / total) * 100) : 100,
+    };
+  }, [history]);
+
   if (loc.status !== "granted") return <LocationBlock state={loc.status} />;
 
   if (!driver) {
@@ -98,8 +118,12 @@ function DriverDashboard() {
     <AppShell subtitle="Live" title="Delivery">
       {driver.approval_status !== "approved" && (
         <div className="mb-6 card-soft border-warning/40 bg-warning/10 p-4">
-          <p className="text-sm font-medium">Awaiting admin approval</p>
-          <p className="mt-1 text-xs text-muted-foreground">Once approved, nearby orders will appear here.</p>
+          <p className="text-sm font-medium">
+            {driver.approval_status === "rejected" ? "Registration rejected" : "Awaiting admin approval"}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {driver.approval_status === "rejected" ? "Contact support for next steps." : "Once approved, nearby orders will appear here."}
+          </p>
         </div>
       )}
 
@@ -115,24 +139,72 @@ function DriverDashboard() {
         </div>
       </div>
 
-      {active ? (
-        <ActiveOrder order={active} onChange={loadOrders} />
-      ) : (
-        <>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Nearby orders</h2>
-          {nearby.length === 0 ? (
-            <div className="card-soft p-10 text-center">
-              <p className="font-serif-italic text-muted-foreground">No orders nearby.</p>
-              <p className="mt-2 text-sm text-muted-foreground">We only show orders within 3 km of your live location.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {nearby.map((o) => <NearbyCard key={o.id} order={o} onAccepted={loadOrders} />)}
-            </div>
-          )}
-        </>
+      {/* Earnings */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Today" value={fmtINR(stats.todayEarn)} icon={<Wallet className="h-4 w-4" />} accent />
+        <Stat label="This week" value={fmtINR(stats.weekEarn)} icon={<Wallet className="h-4 w-4" />} />
+        <Stat label="This month" value={fmtINR(stats.monthEarn)} icon={<Wallet className="h-4 w-4" />} />
+        <Stat label="Lifetime" value={fmtINR(stats.lifetimeEarn)} icon={<TrendingUp className="h-4 w-4" />} />
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Today deliveries" value={stats.todayDeliveries} icon={<Package className="h-4 w-4" />} />
+        <Stat label="Completed" value={stats.delivered} icon={<CheckCircle2 className="h-4 w-4" />} />
+        <Stat label="Cancelled" value={stats.cancelled} icon={<XCircle className="h-4 w-4" />} />
+        <Stat label="Accept rate" value={`${stats.acceptRate}%`} icon={<TrendingUp className="h-4 w-4" />} />
+      </div>
+
+      <div className="mt-8">
+        {active ? (
+          <ActiveOrder order={active} onChange={loadOrders} />
+        ) : (
+          <>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Available requests</h2>
+            {nearby.length === 0 ? (
+              <div className="card-soft p-10 text-center">
+                <p className="font-serif-italic text-muted-foreground">No orders nearby.</p>
+                <p className="mt-2 text-sm text-muted-foreground">We only show orders within 3 km of your live location.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {nearby.map((o) => <NearbyCard key={o.id} order={o} onAccepted={loadOrders} />)}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {history.length > 0 && (
+        <div className="mt-10">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Recent deliveries</h2>
+          <div className="space-y-2">
+            {history.slice(0, 8).map((o) => (
+              <div key={o.id} className="card-soft flex items-center justify-between p-4">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{o.order_description}</p>
+                  <p className="text-[11px] text-muted-foreground">{timeAgo(o.created_at)}</p>
+                </div>
+                <div className="text-right">
+                  <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${ORDER_STATUS_TONE[o.status]}`}>
+                    {ORDER_STATUS_LABEL[o.status]}
+                  </span>
+                  <p className="mt-1 text-sm font-bold text-primary">+{fmtINR(o.delivery_charge)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </AppShell>
+  );
+}
+
+function Stat({ label, value, icon, accent }: { label: string; value: React.ReactNode; icon: React.ReactNode; accent?: boolean }) {
+  return (
+    <div className={`card-soft p-4 ${accent ? "ring-1 ring-primary/25" : ""}`}>
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">{icon}{label}</div>
+      <p className="mt-2 text-xl font-black">{value}</p>
+    </div>
   );
 }
 
@@ -261,29 +333,17 @@ function LocationBlock({ state }: { state: "loading" | "denied" | "unavailable" 
           <MapPin className="h-7 w-7" />
         </div>
         <h1 className="mt-6 text-2xl font-black">
-          {state === "loading"
-            ? "Locating you…"
-            : state === "denied"
-              ? "Location permission blocked"
-              : "Location unavailable"}
+          {state === "loading" ? "Locating you…" : state === "denied" ? "Location permission blocked" : "Location unavailable"}
         </h1>
         {state === "loading" ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Waiting for a GPS fix. Please allow the browser prompt if it appears — we'll continue automatically.
-          </p>
+          <p className="mt-3 text-sm text-muted-foreground">Waiting for a GPS fix. Please allow the browser prompt if it appears.</p>
         ) : state === "denied" ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            You've blocked location for this site. Tap the lock icon in your browser's address bar, set Location to Allow, then tap Try again.
-          </p>
+          <p className="mt-3 text-sm text-muted-foreground">You've blocked location for this site. Tap the lock icon in your browser's address bar, set Location to Allow, then tap Try again.</p>
         ) : (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Your device can't share a location right now. Check that GPS / Location Services are on and try again.
-          </p>
+          <p className="mt-3 text-sm text-muted-foreground">Your device can't share a location right now. Check GPS and try again.</p>
         )}
         {state !== "loading" && (
-          <Button onClick={() => window.location.reload()} className="mt-6 rounded-full">
-            Try again
-          </Button>
+          <Button onClick={() => window.location.reload()} className="mt-6 rounded-full">Try again</Button>
         )}
       </div>
     </div>
