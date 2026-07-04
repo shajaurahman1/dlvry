@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { DlvryLogo } from "@/components/brand/logo";
 import { BackButton } from "@/components/back-button";
+import { NotificationBell } from "@/components/notification-bell";
 import { useAuth } from "@/lib/auth";
 import { LogOut } from "lucide-react";
 import { type ReactNode } from "react";
@@ -16,12 +17,15 @@ export function AppShell({ children, title, subtitle, actions }: { children: Rea
             <BackButton />
             <Link to="/"><DlvryLogo className="text-xl" /></Link>
           </div>
-          <button
-            onClick={async () => { await signOut(); navigate({ to: "/" }); }}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
-          >
-            <LogOut className="h-3.5 w-3.5" /> Sign out
-          </button>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <button
+              onClick={async () => { await signOut(); navigate({ to: "/" }); }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+            >
+              <LogOut className="h-3.5 w-3.5" /> Sign out
+            </button>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-4xl px-5 pb-24 pt-8">
