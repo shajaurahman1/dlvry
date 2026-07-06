@@ -210,14 +210,20 @@ function NearbyCard({ order, onAccepted }: { order: NearbyOrder; onAccepted: () 
   const accept = async () => {
     if (!user) return;
     setBusy(true);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("orders")
       .update({ driver_id: user.id, status: "accepted" })
       .eq("id", order.id)
       .eq("status", "pending")
-      .is("driver_id", null);
+      .is("driver_id", null)
+      .select("id");
     setBusy(false);
     if (error) return toast.error(error.message);
+    if (!data || data.length === 0) {
+      toast.error("This order has already been accepted by another delivery partner.");
+      onAccepted();
+      return;
+    }
     toast.success("Order accepted");
     onAccepted();
   };
