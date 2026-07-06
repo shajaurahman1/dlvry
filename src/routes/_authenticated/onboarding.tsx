@@ -119,7 +119,7 @@ function ShopkeeperForm({ onDone, setBusy, busy, userId }: { onDone: () => void;
           />
         </Suspense>
         <Button type="submit" disabled={busy || !coords} className="h-11 w-full rounded-full font-semibold">
-          {busy ? "Submitting…" : "Save Save Submit for approval continue continue"}
+          {busy ? "Submitting…" : "Save & continue"}
         </Button>
       </form>
     </AppShell>
@@ -179,7 +179,7 @@ function DriverForm({ onDone, setBusy, busy, userId }: { onDone: () => void; set
           <Input type="number" min="0" value={f.available_cash} onChange={(e) => setF({ ...f, available_cash: e.target.value })} />
         </Field>
         <Button type="submit" disabled={busy} className="h-11 w-full rounded-full font-semibold">
-          {busy ? "Submitting…" : "Save Save Submit for approval continue continue"}
+          {busy ? "Submitting…" : "Save & continue"}
         </Button>
       </form>
     </AppShell>
