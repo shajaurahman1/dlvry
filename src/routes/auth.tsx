@@ -61,6 +61,11 @@ function AuthPage() {
     setBusy(true);
     try {
       if (tab === "signup") {
+        if (!acceptTerms) {
+          toast.error("Please accept the Terms & Conditions to continue.");
+          setBusy(false);
+          return;
+        }
         const { error } = await supabase.auth.signUp({
           email,
           password,
