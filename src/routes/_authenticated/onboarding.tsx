@@ -83,7 +83,7 @@ function ShopkeeperForm({ onDone, setBusy, busy, userId }: { onDone: () => void;
       });
       if (error) throw error;
       await supabase.from("user_roles").insert({ user_id: userId, role: "shopkeeper" });
-      toast.success("Submitted for approval");
+      toast.success("You're all set — welcome to DLVRY");
       onDone();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to submit");
