@@ -116,14 +116,10 @@ function DriverDashboard() {
 
   return (
     <AppShell subtitle="Live" title="Delivery">
-      {driver.approval_status !== "approved" && (
-        <div className="mb-6 card-soft border-warning/40 bg-warning/10 p-4">
-          <p className="text-sm font-medium">
-            {driver.approval_status === "rejected" ? "Registration rejected" : "Awaiting admin approval"}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {driver.approval_status === "rejected" ? "Contact support for next steps." : "Once approved, nearby orders will appear here."}
-          </p>
+      {driver.approval_status === "blocked" && (
+        <div className="mb-6 card-soft border-destructive/40 bg-destructive/10 p-4">
+          <p className="text-sm font-medium">Your account has been blocked</p>
+          <p className="mt-1 text-xs text-muted-foreground">Please contact support.</p>
         </div>
       )}
 
