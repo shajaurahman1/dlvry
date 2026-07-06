@@ -134,24 +134,16 @@ function ShopDashboard() {
           <p className="text-xs capitalize text-muted-foreground">{shop.shop_category}</p>
         </div>
         <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
-          shop.approval_status === "approved" ? "bg-primary/15 text-primary"
-          : shop.approval_status === "rejected" ? "bg-destructive/10 text-destructive"
-          : "bg-warning/15 text-[color:oklch(0.5_0.12_79)]"
+          shop.approval_status === "blocked" ? "bg-destructive/10 text-destructive" : "bg-primary/15 text-primary"
         }`}>
-          {shop.approval_status === "approved" ? "Approved" : shop.approval_status === "rejected" ? "Rejected" : "Pending approval"}
+          {shop.approval_status === "blocked" ? "Blocked" : "Active"}
         </span>
       </div>
 
-      {shop.approval_status !== "approved" && (
-        <div className="mb-6 card-soft border-warning/40 bg-warning/10 p-4">
-          <p className="text-sm font-medium">
-            {shop.approval_status === "rejected" ? "Your registration was rejected" : "Awaiting admin approval"}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {shop.approval_status === "rejected"
-              ? "Contact support or update your details."
-              : "You can prepare, but nearby drivers won't see orders until you're approved."}
-          </p>
+      {shop.approval_status === "blocked" && (
+        <div className="mb-6 card-soft border-destructive/40 bg-destructive/10 p-4">
+          <p className="text-sm font-medium">Your account has been blocked</p>
+          <p className="mt-1 text-xs text-muted-foreground">Please contact support.</p>
         </div>
       )}
 
@@ -159,14 +151,14 @@ function ShopDashboard() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button
-            disabled={shop.approval_status !== "approved"}
+            disabled={shop.approval_status === "blocked"}
             className="mb-8 h-16 w-full rounded-2xl text-base font-bold shadow-soft"
           >
-            <Plus className="mr-2 h-5 w-5" /> REQUEST PICKUP
+            <Plus className="mr-2 h-5 w-5" /> NEW ORDER REQUEST
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>New pickup request</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>New order request</DialogTitle></DialogHeader>
           <NewOrderForm shop={shop} onCreated={() => { setOpen(false); load(); }} />
         </DialogContent>
       </Dialog>

@@ -116,14 +116,10 @@ function DriverDashboard() {
 
   return (
     <AppShell subtitle="Live" title="Delivery">
-      {driver.approval_status !== "approved" && (
-        <div className="mb-6 card-soft border-warning/40 bg-warning/10 p-4">
-          <p className="text-sm font-medium">
-            {driver.approval_status === "rejected" ? "Registration rejected" : "Awaiting admin approval"}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {driver.approval_status === "rejected" ? "Contact support for next steps." : "Once approved, nearby orders will appear here."}
-          </p>
+      {driver.approval_status === "blocked" && (
+        <div className="mb-6 card-soft border-destructive/40 bg-destructive/10 p-4">
+          <p className="text-sm font-medium">Your account has been blocked</p>
+          <p className="mt-1 text-xs text-muted-foreground">Please contact support.</p>
         </div>
       )}
 
@@ -214,14 +210,20 @@ function NearbyCard({ order, onAccepted }: { order: NearbyOrder; onAccepted: () 
   const accept = async () => {
     if (!user) return;
     setBusy(true);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("orders")
       .update({ driver_id: user.id, status: "accepted" })
       .eq("id", order.id)
       .eq("status", "pending")
-      .is("driver_id", null);
+      .is("driver_id", null)
+      .select("id");
     setBusy(false);
     if (error) return toast.error(error.message);
+    if (!data || data.length === 0) {
+      toast.error("This order has already been accepted by another delivery partner.");
+      onAccepted();
+      return;
+    }
     toast.success("Order accepted");
     onAccepted();
   };
@@ -250,8 +252,22 @@ function NearbyCard({ order, onAccepted }: { order: NearbyOrder; onAccepted: () 
 }
 
 function ActiveOrder({ order, onChange }: { order: Order; onChange: () => void }) {
+  const { user } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [shop, setShop] = useState<{ shop_name: string; address: string; phone: string | null } | null>(null);
+  const [driverName, setDriverName] = useState<string>("");
   const paymentReceived = order.status === "payment_received" || order.status === "out_for_delivery" || order.status === "delivered";
+
+  useEffect(() => {
+    void supabase.from("shopkeepers").select("shop_name,address").eq("id", order.shop_id).maybeSingle().then(async ({ data }) => {
+      if (!data) return;
+      const { data: prof } = await supabase.from("profiles").select("phone").eq("id", order.shop_id).maybeSingle();
+      setShop({ shop_name: data.shop_name, address: data.address, phone: prof?.phone ?? null });
+    });
+    if (user) {
+      void supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle().then(({ data }) => setDriverName(data?.full_name ?? "Delivery partner"));
+    }
+  }, [order.shop_id, user]);
 
   const update = async (patch: Partial<Order>) => {
     setBusy(true);
@@ -259,6 +275,27 @@ function ActiveOrder({ order, onChange }: { order: Order; onChange: () => void }
     setBusy(false);
     if (error) return toast.error(error.message);
     onChange();
+  };
+
+  const openWhatsAppCustomer = () => {
+    const msg =
+`Hi ${order.customer_name},
+
+This is ${driverName || "your delivery partner"} from ${shop?.shop_name ?? "the shop"}.
+I have picked up your order worth ₹${Number(order.order_amount)}.
+I will deliver it shortly.
+
+Delivery Charge: ₹${Number(order.delivery_charge)}
+Total Payable: ₹${Number(order.total_amount)}
+
+Thank you.`;
+    const phone = (order.customer_phone || "").replace(/[^\d]/g, "");
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+  };
+
+  const navigateToShop = () => {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${order.pickup_lat},${order.pickup_lng}`;
+    window.open(url, "_blank");
   };
 
   return (
@@ -269,8 +306,26 @@ function ActiveOrder({ order, onChange }: { order: Order; onChange: () => void }
       <h3 className="mt-3 text-xl font-bold">{order.order_description}</h3>
 
       <div className="mt-5 space-y-4 text-sm">
+        {shop && (
+          <div className="rounded-xl border border-border p-4">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Shop</p>
+            <p className="mt-1 font-semibold">{shop.shop_name}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{shop.address}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {shop.phone && (
+                <a href={`tel:${shop.phone}`} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium">
+                  <Phone className="h-3.5 w-3.5" /> Contact shop
+                </a>
+              )}
+              <button onClick={navigateToShop} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium">
+                <Navigation className="h-3.5 w-3.5" /> Navigate to shop
+              </button>
+            </div>
+          </div>
+        )}
+
         <div>
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">Pickup</p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Pickup notes</p>
           <p className="mt-1 font-medium">{order.pickup_notes || "See shop for details"}</p>
         </div>
         <div className="rounded-xl bg-muted/50 p-4">
@@ -311,8 +366,12 @@ function ActiveOrder({ order, onChange }: { order: Order; onChange: () => void }
           </Button>
         )}
         {order.status === "payment_received" && (
-          <Button disabled={busy} className="h-11 w-full rounded-full font-semibold" onClick={() => update({ status: "out_for_delivery" })}>
-            Start delivery
+          <Button
+            disabled={busy}
+            className="h-11 w-full rounded-full font-semibold"
+            onClick={async () => { openWhatsAppCustomer(); await update({ status: "out_for_delivery" }); }}
+          >
+            <Package className="mr-1.5 h-4 w-4" /> Picked up — message customer
           </Button>
         )}
         {order.status === "out_for_delivery" && (
@@ -324,6 +383,7 @@ function ActiveOrder({ order, onChange }: { order: Order; onChange: () => void }
     </div>
   );
 }
+
 
 function LocationBlock({ state }: { state: "loading" | "denied" | "unavailable" }) {
   return (

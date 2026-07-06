@@ -39,6 +39,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -60,6 +61,11 @@ function AuthPage() {
     setBusy(true);
     try {
       if (tab === "signup") {
+        if (!acceptTerms) {
+          toast.error("Please accept the Terms & Conditions to continue.");
+          setBusy(false);
+          return;
+        }
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -133,13 +139,27 @@ function AuthPage() {
               <Label htmlFor="pw">Password</Label>
               <Input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="mt-1.5" required />
             </div>
-            <Button type="submit" disabled={busy} className="h-11 w-full rounded-full text-sm font-semibold">
+            {tab === "signup" && (
+              <label className="flex items-start gap-2.5 rounded-xl border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={acceptTerms}
+                  onChange={(e) => setAcceptTerms(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-border accent-[color:oklch(0.55_0.13_155)]"
+                />
+                <span>
+                  I have read and agree to the{" "}
+                  <Link to="/terms" className="font-medium text-primary underline underline-offset-2">Terms &amp; Conditions</Link>.
+                </span>
+              </label>
+            )}
+            <Button type="submit" disabled={busy || (tab === "signup" && !acceptTerms)} className="h-11 w-full rounded-full text-sm font-semibold">
               {busy ? "Please wait…" : tab === "signin" ? "Sign in" : "Create account"}
             </Button>
           </form>
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          By continuing you agree to the DLVRY terms of use.
+          <Link to="/terms" className="underline underline-offset-2">Terms &amp; Conditions</Link>
         </p>
       </div>
     </div>
