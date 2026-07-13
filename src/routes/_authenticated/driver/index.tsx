@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
@@ -129,7 +129,7 @@ function DriverDashboard() {
     };
   }, [history]);
 
-  if (loc.status !== "granted") return <LocationBlock state={loc.status} />;
+  if (loc.status !== "granted") return <LocationBlock state={loc.status} onRetry={loc.retry} />;
 
   if (!driver) {
     return (
