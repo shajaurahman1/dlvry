@@ -72,7 +72,7 @@ function ShopkeeperForm({ onDone, setBusy, busy, userId }: { onDone: () => void;
     setBusy(true);
     try {
       await supabase.from("profiles").update({ phone: f.phone, whatsapp: f.whatsapp }).eq("id", userId);
-      const { error } = await supabase.from("shopkeepers").insert({
+      const { error } = await supabase.from("shopkeepers").upsert({
         id: userId,
         shop_name: f.shop_name,
         shop_category: f.shop_category,
@@ -80,9 +80,9 @@ function ShopkeeperForm({ onDone, setBusy, busy, userId }: { onDone: () => void;
         latitude: coords.lat,
         longitude: coords.lng,
         gst_number: f.gst_number || null,
-      });
+      }, { onConflict: "id" });
       if (error) throw error;
-      await supabase.from("user_roles").insert({ user_id: userId, role: "shopkeeper" });
+      await supabase.from("user_roles").upsert({ user_id: userId, role: "shopkeeper" }, { onConflict: "user_id,role" });
       toast.success("You're all set — welcome to DLVRY");
       onDone();
     } catch (err) {
@@ -137,7 +137,7 @@ function DriverForm({ onDone, setBusy, busy, userId }: { onDone: () => void; set
     setBusy(true);
     try {
       await supabase.from("profiles").update({ phone: f.phone, whatsapp: f.whatsapp }).eq("id", userId);
-      const { error } = await supabase.from("drivers").insert({
+      const { error } = await supabase.from("drivers").upsert({
         id: userId,
         date_of_birth: f.date_of_birth || null,
         home_address: f.home_address,
@@ -145,9 +145,9 @@ function DriverForm({ onDone, setBusy, busy, userId }: { onDone: () => void; set
         vehicle_type: f.vehicle_type,
         vehicle_number: f.vehicle_number || null,
         available_cash: Number(f.available_cash) || 0,
-      });
+      }, { onConflict: "id" });
       if (error) throw error;
-      await supabase.from("user_roles").insert({ user_id: userId, role: "driver" });
+      await supabase.from("user_roles").upsert({ user_id: userId, role: "driver" }, { onConflict: "user_id,role" });
       toast.success("You're all set — welcome to DLVRY");
       onDone();
     } catch (err) {
