@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
@@ -66,6 +66,8 @@ function DriverDashboard() {
     setHistory((hist as Order[]) ?? []);
   }, [user, loc]);
 
+  const prevNearbyIdsRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     void loadOrders();
     if (!user) return;
@@ -73,9 +75,34 @@ function DriverDashboard() {
       .channel("driver-orders")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadOrders())
       .subscribe();
-    const iv = setInterval(loadOrders, 20000);
+    const iv = setInterval(loadOrders, 15000);
     return () => { supabase.removeChannel(ch); clearInterval(iv); };
   }, [loadOrders, user]);
+
+  // Uber-style ping when a new order pops into your 3 km radius.
+  useEffect(() => {
+    const currentIds = new Set(nearby.map((n) => n.id));
+    const fresh = nearby.filter((n) => !prevNearbyIdsRef.current.has(n.id));
+    if (prevNearbyIdsRef.current.size > 0 && fresh.length > 0 && !active) {
+      const top = fresh[0];
+      toast.success(`New pickup ${top.distance_km.toFixed(1)} km away`, {
+        description: `${top.shop_name} · ${fmtINR(top.total_amount)}`,
+      });
+      try {
+        // Short chirp — best-effort, silent on browsers that block autoplay.
+        const AC = (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext);
+        const ctx = new AC();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = 880;
+        gain.gain.value = 0.05;
+        osc.connect(gain).connect(ctx.destination);
+        osc.start();
+        setTimeout(() => { osc.stop(); ctx.close(); }, 220);
+      } catch { /* ignore */ }
+    }
+    prevNearbyIdsRef.current = currentIds;
+  }, [nearby, active]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -102,7 +129,7 @@ function DriverDashboard() {
     };
   }, [history]);
 
-  if (loc.status !== "granted") return <LocationBlock state={loc.status} />;
+  if (loc.status !== "granted") return <LocationBlock state={loc.status} onRetry={loc.retry} />;
 
   if (!driver) {
     return (
@@ -385,26 +412,37 @@ Thank you.`;
 }
 
 
-function LocationBlock({ state }: { state: "loading" | "denied" | "unavailable" }) {
+function LocationBlock({ state, onRetry }: { state: "loading" | "searching" | "denied" | "unavailable"; onRetry: () => void }) {
+  const isBusy = state === "loading" || state === "searching";
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="max-w-md text-center">
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-primary/10 text-primary">
-          <MapPin className="h-7 w-7" />
+          {isBusy ? (
+            <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+          ) : (
+            <MapPin className="h-7 w-7" />
+          )}
         </div>
         <h1 className="mt-6 text-2xl font-black">
-          {state === "loading" ? "Locating you…" : state === "denied" ? "Location permission blocked" : "Location unavailable"}
+          {state === "loading" && "Locating you…"}
+          {state === "searching" && "Finding your GPS…"}
+          {state === "denied" && "Location permission blocked"}
+          {state === "unavailable" && "Location unavailable"}
         </h1>
-        {state === "loading" ? (
-          <p className="mt-3 text-sm text-muted-foreground">Waiting for a GPS fix. Please allow the browser prompt if it appears.</p>
-        ) : state === "denied" ? (
-          <p className="mt-3 text-sm text-muted-foreground">You've blocked location for this site. Tap the lock icon in your browser's address bar, set Location to Allow, then tap Try again.</p>
-        ) : (
+        {state === "loading" && (
+          <p className="mt-3 text-sm text-muted-foreground">Allow the browser prompt if it appears.</p>
+        )}
+        {state === "searching" && (
+          <p className="mt-3 text-sm text-muted-foreground">Taking longer than usual. Make sure GPS is on and you're not indoors — we'll keep trying in the background.</p>
+        )}
+        {state === "denied" && (
+          <p className="mt-3 text-sm text-muted-foreground">Tap the lock icon in your browser's address bar, set Location to Allow, then Try again.</p>
+        )}
+        {state === "unavailable" && (
           <p className="mt-3 text-sm text-muted-foreground">Your device can't share a location right now. Check GPS and try again.</p>
         )}
-        {state !== "loading" && (
-          <Button onClick={() => window.location.reload()} className="mt-6 rounded-full">Try again</Button>
-        )}
+        <Button onClick={onRetry} className="mt-6 rounded-full">Try again</Button>
       </div>
     </div>
   );
