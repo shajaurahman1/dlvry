@@ -412,26 +412,37 @@ Thank you.`;
 }
 
 
-function LocationBlock({ state }: { state: "loading" | "denied" | "unavailable" }) {
+function LocationBlock({ state, onRetry }: { state: "loading" | "searching" | "denied" | "unavailable"; onRetry: () => void }) {
+  const isBusy = state === "loading" || state === "searching";
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="max-w-md text-center">
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-primary/10 text-primary">
-          <MapPin className="h-7 w-7" />
+          {isBusy ? (
+            <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+          ) : (
+            <MapPin className="h-7 w-7" />
+          )}
         </div>
         <h1 className="mt-6 text-2xl font-black">
-          {state === "loading" ? "Locating you…" : state === "denied" ? "Location permission blocked" : "Location unavailable"}
+          {state === "loading" && "Locating you…"}
+          {state === "searching" && "Finding your GPS…"}
+          {state === "denied" && "Location permission blocked"}
+          {state === "unavailable" && "Location unavailable"}
         </h1>
-        {state === "loading" ? (
-          <p className="mt-3 text-sm text-muted-foreground">Waiting for a GPS fix. Please allow the browser prompt if it appears.</p>
-        ) : state === "denied" ? (
-          <p className="mt-3 text-sm text-muted-foreground">You've blocked location for this site. Tap the lock icon in your browser's address bar, set Location to Allow, then tap Try again.</p>
-        ) : (
+        {state === "loading" && (
+          <p className="mt-3 text-sm text-muted-foreground">Allow the browser prompt if it appears.</p>
+        )}
+        {state === "searching" && (
+          <p className="mt-3 text-sm text-muted-foreground">Taking longer than usual. Make sure GPS is on and you're not indoors — we'll keep trying in the background.</p>
+        )}
+        {state === "denied" && (
+          <p className="mt-3 text-sm text-muted-foreground">Tap the lock icon in your browser's address bar, set Location to Allow, then Try again.</p>
+        )}
+        {state === "unavailable" && (
           <p className="mt-3 text-sm text-muted-foreground">Your device can't share a location right now. Check GPS and try again.</p>
         )}
-        {state !== "loading" && (
-          <Button onClick={() => window.location.reload()} className="mt-6 rounded-full">Try again</Button>
-        )}
+        <Button onClick={onRetry} className="mt-6 rounded-full">Try again</Button>
       </div>
     </div>
   );
