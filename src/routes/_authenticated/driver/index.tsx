@@ -154,17 +154,45 @@ function DriverDashboard() {
         </div>
       )}
 
+      {driver.verification_status === "pending" && (
+        <div className="card-soft mb-6 border-warning/40 bg-warning/10 p-4">
+          <p className="flex items-center gap-2 text-sm font-medium"><ShieldCheck className="h-4 w-4" /> Verification pending</p>
+          <p className="mt-1 text-xs text-muted-foreground">An admin is reviewing your documents. You'll start receiving requests as soon as you're verified.</p>
+        </div>
+      )}
+      {driver.verification_status === "rejected" && (
+        <div className="card-soft mb-6 border-destructive/40 bg-destructive/10 p-4">
+          <p className="text-sm font-medium">Verification rejected</p>
+          <p className="mt-1 text-xs text-muted-foreground">{driver.verification_notes || "Please re-upload your documents from your profile."}</p>
+        </div>
+      )}
+
+      {/* Availability */}
       <div className="card-elevated mb-6 flex items-center gap-4 p-5">
-        <div className="grid h-11 w-11 place-items-center rounded-full bg-primary/10 text-primary">
+        <div className={`grid h-11 w-11 place-items-center rounded-full ${driver.is_online ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
           <MapPin className="h-5 w-5" />
         </div>
-        <div className="flex-1 text-sm">
-          <p className="font-semibold">Live location active</p>
-          <p className="text-xs text-muted-foreground">
+        <div className="min-w-0 flex-1 text-sm">
+          <p className="font-semibold">
+            {driver.is_busy ? "Busy — on a delivery" : driver.is_online ? "Online — receiving requests" : "Offline"}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">
             {loc.coords.lat.toFixed(4)}, {loc.coords.lng.toFixed(4)} · Cash cap {fmtINR(driver.available_cash)}
           </p>
         </div>
+        <Switch
+          checked={driver.is_online}
+          aria-label="Go online"
+          onCheckedChange={async (on) => {
+            setDriver({ ...driver, is_online: on });
+            const { error } = await supabase.from("drivers").update({ is_online: on }).eq("id", driver.id);
+            if (error) { setDriver({ ...driver, is_online: !on }); return toast.error(error.message); }
+            toast.success(on ? "You're online" : "You're offline");
+            void loadOrders();
+          }}
+        />
       </div>
+
 
       {/* Earnings */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
