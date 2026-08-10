@@ -194,7 +194,7 @@ function DriverDashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {nearby.map((o) => <NearbyCard key={o.id} order={o} onAccepted={loadOrders} />)}
+                {nearby.map((o) => <NearbyCard key={o.id} order={o} onAccepted={loadOrders} coords={loc.coords} />)}
               </div>
             )}
           </>
@@ -311,7 +311,7 @@ function ActiveOrder({ order, onChange }: { order: Order; onChange: () => void }
     const { data, error } = await supabase.rpc("advance_order", {
       p_order_id: order.id,
       p_status: status as Order["status"],
-      p_otp: code ?? null,
+      p_otp: code ?? undefined,
     });
     setBusy(false);
     if (error) return toast.error(error.message);
