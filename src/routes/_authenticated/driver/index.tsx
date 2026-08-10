@@ -4,9 +4,11 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useLiveLocation } from "@/lib/geo";
-import { MapPin, Navigation, Phone, Package, Wallet, TrendingUp, CheckCircle2, XCircle } from "lucide-react";
-import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo } from "@/lib/orders";
+import { MapPin, Navigation, Phone, Package, Wallet, TrendingUp, CheckCircle2, XCircle, ShieldCheck } from "lucide-react";
+import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo, minutesLeft } from "@/lib/orders";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -19,7 +21,9 @@ interface NearbyOrder {
   id: string; shop_id: string; shop_name: string; pickup_address: string;
   order_amount: number; delivery_charge: number; total_amount: number;
   pickup_lat: number; pickup_lng: number; distance_km: number; created_at: string;
+  payment_method: string; expires_at: string | null;
 }
+
 
 function DriverDashboard() {
   const { user, roles, loading } = useAuth();
@@ -54,6 +58,7 @@ function DriverDashboard() {
 
   const loadOrders = useCallback(async () => {
     if (!user) return;
+    void supabase.rpc("expire_stale_orders");
     const [{ data: rpc }, { data: mine }, { data: hist }] = await Promise.all([
       loc.status === "granted"
         ? supabase.rpc("nearby_orders", { driver_lat: loc.coords.lat, driver_lng: loc.coords.lng })
@@ -150,17 +155,45 @@ function DriverDashboard() {
         </div>
       )}
 
+      {driver.verification_status === "pending" && (
+        <div className="card-soft mb-6 border-warning/40 bg-warning/10 p-4">
+          <p className="flex items-center gap-2 text-sm font-medium"><ShieldCheck className="h-4 w-4" /> Verification pending</p>
+          <p className="mt-1 text-xs text-muted-foreground">An admin is reviewing your documents. You'll start receiving requests as soon as you're verified.</p>
+        </div>
+      )}
+      {driver.verification_status === "rejected" && (
+        <div className="card-soft mb-6 border-destructive/40 bg-destructive/10 p-4">
+          <p className="text-sm font-medium">Verification rejected</p>
+          <p className="mt-1 text-xs text-muted-foreground">{driver.verification_notes || "Please re-upload your documents from your profile."}</p>
+        </div>
+      )}
+
+      {/* Availability */}
       <div className="card-elevated mb-6 flex items-center gap-4 p-5">
-        <div className="grid h-11 w-11 place-items-center rounded-full bg-primary/10 text-primary">
+        <div className={`grid h-11 w-11 place-items-center rounded-full ${driver.is_online ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
           <MapPin className="h-5 w-5" />
         </div>
-        <div className="flex-1 text-sm">
-          <p className="font-semibold">Live location active</p>
-          <p className="text-xs text-muted-foreground">
+        <div className="min-w-0 flex-1 text-sm">
+          <p className="font-semibold">
+            {driver.is_busy ? "Busy — on a delivery" : driver.is_online ? "Online — receiving requests" : "Offline"}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">
             {loc.coords.lat.toFixed(4)}, {loc.coords.lng.toFixed(4)} · Cash cap {fmtINR(driver.available_cash)}
           </p>
         </div>
+        <Switch
+          checked={driver.is_online}
+          aria-label="Go online"
+          onCheckedChange={async (on) => {
+            setDriver({ ...driver, is_online: on });
+            const { error } = await supabase.from("drivers").update({ is_online: on }).eq("id", driver.id);
+            if (error) { setDriver({ ...driver, is_online: !on }); return toast.error(error.message); }
+            toast.success(on ? "You're online" : "You're offline");
+            void loadOrders();
+          }}
+        />
       </div>
+
 
       {/* Earnings */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -185,12 +218,18 @@ function DriverDashboard() {
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Available requests</h2>
             {nearby.length === 0 ? (
               <div className="card-soft p-10 text-center">
-                <p className="font-serif-italic text-muted-foreground">No orders nearby.</p>
-                <p className="mt-2 text-sm text-muted-foreground">We only show orders within 3 km of your live location.</p>
+                <p className="font-serif-italic text-muted-foreground">
+                  {driver.is_online ? "No orders nearby." : "You're offline."}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {driver.is_online
+                    ? "We only show orders within 3 km of your live location."
+                    : "Go online to start receiving pickup requests near you."}
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {nearby.map((o) => <NearbyCard key={o.id} order={o} onAccepted={loadOrders} />)}
+                {nearby.map((o) => <NearbyCard key={o.id} order={o} onAccepted={loadOrders} coords={loc.coords} />)}
               </div>
             )}
           </>
@@ -231,37 +270,42 @@ function Stat({ label, value, icon, accent }: { label: string; value: React.Reac
   );
 }
 
-function NearbyCard({ order, onAccepted }: { order: NearbyOrder; onAccepted: () => void }) {
-  const { user } = useAuth();
+function NearbyCard({ order, onAccepted, coords }: { order: NearbyOrder; onAccepted: () => void; coords: { lat: number; lng: number } }) {
   const [busy, setBusy] = useState(false);
   const accept = async () => {
-    if (!user) return;
     setBusy(true);
-    const { data, error } = await supabase
-      .from("orders")
-      .update({ driver_id: user.id, status: "accepted" })
-      .eq("id", order.id)
-      .eq("status", "pending")
-      .is("driver_id", null)
-      .select("id");
+    const { data, error } = await supabase.rpc("accept_order", {
+      p_order_id: order.id, p_lat: coords.lat, p_lng: coords.lng,
+    });
     setBusy(false);
     if (error) return toast.error(error.message);
-    if (!data || data.length === 0) {
-      toast.error("This order has already been accepted by another delivery partner.");
+    const res = data as { ok: boolean; error?: string };
+    if (!res?.ok) {
+      const msg: Record<string, string> = {
+        already_taken: "Another delivery partner accepted this first.",
+        expired: "This request has expired.",
+        too_far: "You've moved out of range for this pickup.",
+        not_verified: "Your account is still awaiting verification.",
+        busy: "Finish your current delivery first.",
+      };
+      toast.error(msg[res?.error ?? ""] ?? "Could not accept this order.");
       onAccepted();
       return;
     }
     toast.success("Order accepted");
     onAccepted();
   };
+  const mins = minutesLeft(order.expires_at);
   return (
     <div className="card-soft p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-semibold">{order.shop_name}</p>
           <p className="mt-1 text-xs text-muted-foreground">{order.pickup_address}</p>
-          <div className="mt-2 flex gap-2 text-[11px] text-muted-foreground">
+          <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5"><Navigation className="h-3 w-3" />{order.distance_km.toFixed(1)} km</span>
+            <span className="rounded-full bg-accent px-2 py-0.5 uppercase">{order.payment_method}</span>
+            {mins !== null && <span className="rounded-full bg-accent px-2 py-0.5">expires in {mins}m</span>}
             <span>{timeAgo(order.created_at)}</span>
           </div>
         </div>
@@ -281,26 +325,35 @@ function NearbyCard({ order, onAccepted }: { order: NearbyOrder; onAccepted: () 
 function ActiveOrder({ order, onChange }: { order: Order; onChange: () => void }) {
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [otp, setOtp] = useState("");
   const [shop, setShop] = useState<{ shop_name: string; address: string; phone: string | null } | null>(null);
   const [driverName, setDriverName] = useState<string>("");
-  const paymentReceived = order.status === "payment_received" || order.status === "out_for_delivery" || order.status === "delivered";
+  const paymentReceived = ["payment_received", "picked_up", "going_to_customer", "out_for_delivery", "arrived_at_customer", "delivered"].includes(order.status);
 
   useEffect(() => {
-    void supabase.from("shopkeepers").select("shop_name,address").eq("id", order.shop_id).maybeSingle().then(async ({ data }) => {
+    void supabase.from("shopkeepers").select("shop_name,address,shop_phone").eq("id", order.shop_id).maybeSingle().then(async ({ data }) => {
       if (!data) return;
       const { data: prof } = await supabase.from("profiles").select("phone").eq("id", order.shop_id).maybeSingle();
-      setShop({ shop_name: data.shop_name, address: data.address, phone: prof?.phone ?? null });
+      setShop({ shop_name: data.shop_name, address: data.address, phone: data.shop_phone ?? prof?.phone ?? null });
     });
     if (user) {
       void supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle().then(({ data }) => setDriverName(data?.full_name ?? "Delivery partner"));
     }
   }, [order.shop_id, user]);
 
-  const update = async (patch: Partial<Order>) => {
+  const advance = async (status: string, code?: string) => {
     setBusy(true);
-    const { error } = await supabase.from("orders").update(patch).eq("id", order.id);
+    const { data, error } = await supabase.rpc("advance_order", {
+      p_order_id: order.id,
+      p_status: status as Order["status"],
+      p_otp: code ?? undefined,
+    });
     setBusy(false);
     if (error) return toast.error(error.message);
+    const res = data as { ok: boolean; error?: string };
+    if (!res?.ok) {
+      return toast.error(res?.error === "bad_otp" ? "That delivery code doesn't match. Ask the shop for the code." : "Could not update the order.");
+    }
     onChange();
   };
 
@@ -320,10 +373,25 @@ Thank you.`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
-  const navigateToShop = () => {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${order.pickup_lat},${order.pickup_lng}`;
-    window.open(url, "_blank");
+  const navigateTo = (lat: number | null, lng: number | null, fallback?: string) => {
+    const dest = lat != null && lng != null ? `${lat},${lng}` : encodeURIComponent(fallback ?? "");
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}`, "_blank");
   };
+
+  // Which step comes next for this driver.
+  const step = (() => {
+    switch (order.status) {
+      case "accepted": return { status: "going_to_shop", label: "Start — going to shop" };
+      case "going_to_shop": return { status: "arrived_at_shop", label: "I've arrived at the shop" };
+      case "arrived_at_shop":
+      case "reached_shop": return null; // waiting for shop to confirm payment
+      case "payment_received": return { status: "picked_up", label: "Order picked up" };
+      case "picked_up": return { status: "going_to_customer", label: "Going to customer" };
+      case "going_to_customer":
+      case "out_for_delivery": return { status: "arrived_at_customer", label: "Arrived at customer" };
+      default: return null;
+    }
+  })();
 
   return (
     <div className="card-elevated p-6">
@@ -344,7 +412,7 @@ Thank you.`;
                   <Phone className="h-3.5 w-3.5" /> Contact shop
                 </a>
               )}
-              <button onClick={navigateToShop} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium">
+              <button onClick={() => navigateTo(order.pickup_lat, order.pickup_lng)} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium">
                 <Navigation className="h-3.5 w-3.5" /> Navigate to shop
               </button>
             </div>
@@ -357,7 +425,7 @@ Thank you.`;
         </div>
         <div className="rounded-xl bg-muted/50 p-4">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Pay the shop</span>
+            <span className="text-muted-foreground">Pay the shop ({order.payment_method})</span>
             <span className="font-semibold">{fmtINR(order.order_amount)}</span>
           </div>
           <div className="mt-1 flex justify-between">
@@ -378,6 +446,14 @@ Thank you.`;
               <Phone className="h-3.5 w-3.5" /> {order.customer_phone}
             </a>
             <p className="mt-2 text-sm">{order.customer_address}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button onClick={() => navigateTo(order.customer_lat, order.customer_lng, order.customer_address)} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium">
+                <Navigation className="h-3.5 w-3.5" /> Navigate to customer
+              </button>
+              <button onClick={openWhatsAppCustomer} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium">
+                <Package className="h-3.5 w-3.5" /> WhatsApp customer
+              </button>
+            </div>
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
@@ -387,29 +463,32 @@ Thank you.`;
       </div>
 
       <div className="mt-6 space-y-2">
-        {order.status === "accepted" && (
-          <Button disabled={busy} className="h-11 w-full rounded-full font-semibold" onClick={() => update({ status: "reached_shop" })}>
-            I've reached the shop
+        {(order.status === "arrived_at_shop" || order.status === "reached_shop") && (
+          <div className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+            Waiting for the shop to confirm your payment.
+          </div>
+        )}
+        {step && (
+          <Button disabled={busy} className="h-11 w-full rounded-full font-semibold" onClick={() => advance(step.status)}>
+            {step.label}
           </Button>
         )}
-        {order.status === "payment_received" && (
-          <Button
-            disabled={busy}
-            className="h-11 w-full rounded-full font-semibold"
-            onClick={async () => { openWhatsAppCustomer(); await update({ status: "out_for_delivery" }); }}
-          >
-            <Package className="mr-1.5 h-4 w-4" /> Picked up — message customer
-          </Button>
-        )}
-        {order.status === "out_for_delivery" && (
-          <Button disabled={busy} className="h-11 w-full rounded-full font-semibold" onClick={() => update({ status: "delivered" })}>
-            <Package className="mr-1.5 h-4 w-4" /> Mark delivered
-          </Button>
+        {order.status === "arrived_at_customer" && (
+          <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <p className="text-xs text-muted-foreground">Ask the customer for the 4-digit delivery code shared with the shop.</p>
+            <div className="flex gap-2">
+              <Input inputMode="numeric" maxLength={4} value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="0000" className="text-center text-lg font-bold tracking-[0.4em]" />
+              <Button disabled={busy || otp.length !== 4} className="rounded-full font-semibold" onClick={() => advance("delivered", otp)}>
+                Complete
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     </div>
   );
 }
+
 
 
 function LocationBlock({ state, onRetry }: { state: "loading" | "searching" | "denied" | "unavailable"; onRetry: () => void }) {

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
@@ -9,10 +9,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Clock, CheckCircle2, PackageCheck, Settings, XCircle, Truck, CalendarDays } from "lucide-react";
-import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo } from "@/lib/orders";
+import { Plus, Clock, CheckCircle2, PackageCheck, Settings, XCircle, Truck, CalendarDays, RefreshCw } from "lucide-react";
+import {
+  ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo,
+  minutesLeft, SEARCHING_STATUSES, TERMINAL_STATUSES,
+} from "@/lib/orders";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import type { PickedLocation } from "@/components/location-picker";
+
+const LocationPicker = lazy(() =>
+  import("@/components/location-picker").then((m) => ({ default: m.LocationPicker }))
+);
+
 
 export const Route = createFileRoute("/_authenticated/shop/")({ component: ShopDashboard });
 
@@ -64,7 +73,7 @@ function ShopDashboard() {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const today = orders.filter((o) => new Date(o.created_at) >= startOfDay);
     const month = orders.filter((o) => new Date(o.created_at) >= startOfMonth);
-    const active = orders.filter((o) => !["delivered", "cancelled"].includes(o.status));
+    const active = orders.filter((o) => !TERMINAL_STATUSES.includes(o.status));
     const delivered = orders.filter((o) => o.status === "delivered");
     const cancelled = orders.filter((o) => o.status === "cancelled");
     return {
@@ -88,8 +97,9 @@ function ShopDashboard() {
         case "today": return t >= startOfDay;
         case "week": return t >= weekAgo;
         case "month": return t >= monthAgo;
-        case "pending": return o.status === "pending";
-        case "active": return !["delivered", "cancelled", "pending"].includes(o.status);
+        case "pending": return SEARCHING_STATUSES.includes(o.status);
+        case "active": return !TERMINAL_STATUSES.includes(o.status) && !SEARCHING_STATUSES.includes(o.status);
+        case "cancelled": return ["cancelled", "expired", "no_driver_found"].includes(o.status);
         case "completed": return o.status === "delivered";
         case "cancelled": return o.status === "cancelled";
         default: return true;
@@ -216,9 +226,25 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
     onChange();
   };
 
+  const resend = async () => {
+    setBusy(true);
+    const { data, error } = await supabase.rpc("resend_order", { p_order_id: order.id });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    if (!(data as { ok: boolean })?.ok) return toast.error("Could not resend this request.");
+    toast.success("Request sent again to nearby partners");
+    onChange();
+  };
+
+  const searching = SEARCHING_STATUSES.includes(order.status);
+  const mins = minutesLeft(order.expires_at);
+  const showOtp = !TERMINAL_STATUSES.includes(order.status) && !searching && order.delivery_otp;
+
   const nextAction = (() => {
-    if (order.status === "reached_shop") return { label: "Mark Payment Received", patch: { status: "payment_received" as const } };
-    if (order.status === "pending") return { label: "Cancel order", patch: { status: "cancelled" as const, cancel_reason: "Cancelled by shop" }, danger: true };
+    if (order.status === "arrived_at_shop" || order.status === "reached_shop")
+      return { label: "Confirm payment received", patch: { status: "payment_received" as const } };
+    if (searching)
+      return { label: "Cancel request", patch: { status: "cancelled" as const, cancel_reason: "Cancelled by shop" }, danger: true };
     return null;
   })();
 
@@ -230,7 +256,11 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
           <p className="mt-1 text-xs text-muted-foreground">
             {order.customer_name} · <a href={`tel:${order.customer_phone}`} className="underline-offset-2 hover:underline">{order.customer_phone}</a>
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">{timeAgo(order.created_at)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {timeAgo(order.created_at)}
+            {searching && mins !== null && ` · expires in ${mins}m`}
+            {` · ${order.payment_method.toUpperCase()}`}
+          </p>
         </div>
         <div className="text-right">
           <span className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-medium ${ORDER_STATUS_TONE[order.status]}`}>
@@ -240,6 +270,20 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
           <p className="text-[11px] text-muted-foreground">Order {fmtINR(order.order_amount)} + Delivery {fmtINR(order.delivery_charge)}</p>
         </div>
       </div>
+
+      {showOtp && (
+        <div className="mt-4 flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3">
+          <span className="text-xs text-muted-foreground">Delivery code — give this to the customer</span>
+          <span className="text-lg font-black tracking-[0.3em] text-primary">{order.delivery_otp}</span>
+        </div>
+      )}
+
+      {(order.status === "no_driver_found" || order.status === "expired") && (
+        <Button disabled={busy} variant="outline" onClick={resend} className="mt-4 h-10 w-full rounded-full text-sm font-semibold">
+          <RefreshCw className="mr-1.5 h-4 w-4" /> Send request again
+        </Button>
+      )}
+
       {nextAction && (
         <Button
           disabled={busy}
@@ -258,7 +302,9 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
   const [f, setF] = useState({
     customer_name: "", customer_phone: "", customer_address: "",
     order_description: "", order_amount: "", delivery_charge: "30", pickup_notes: "",
+    payment_method: "cash",
   });
+  const [customerLoc, setCustomerLoc] = useState<PickedLocation | null>(null);
   const [busy, setBusy] = useState(false);
   const total = (Number(f.order_amount) || 0) + (Number(f.delivery_charge) || 0);
 
@@ -271,30 +317,61 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
       customer_name: f.customer_name,
       customer_phone: f.customer_phone,
       customer_address: f.customer_address,
+      customer_lat: customerLoc?.lat ?? null,
+      customer_lng: customerLoc?.lng ?? null,
       order_description: f.order_description,
       order_amount: Number(f.order_amount) || 0,
       delivery_charge: Number(f.delivery_charge) || 0,
+      payment_method: f.payment_method,
       pickup_notes: f.pickup_notes,
       pickup_lat: shop.latitude,
       pickup_lng: shop.longitude,
     });
     setBusy(false);
     if (error) return toast.error(error.message);
-    toast.success("Request sent to nearby drivers");
+    toast.success("Searching for a nearby delivery partner…");
     onCreated();
   };
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={submit} className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
       <div className="grid gap-3 md:grid-cols-2">
         <FormField label="Customer name"><Input value={f.customer_name} onChange={(e) => setF({ ...f, customer_name: e.target.value })} required /></FormField>
         <FormField label="Customer phone"><Input value={f.customer_phone} onChange={(e) => setF({ ...f, customer_phone: e.target.value })} required /></FormField>
       </div>
       <FormField label="Delivery address"><Textarea rows={2} value={f.customer_address} onChange={(e) => setF({ ...f, customer_address: e.target.value })} required /></FormField>
+      <Suspense fallback={<div className="rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">Loading map…</div>}>
+        <LocationPicker
+          value={customerLoc}
+          allowGps={false}
+          title="Customer location (optional)"
+          hint="Search the customer's address so the partner can navigate straight to them."
+          onChange={(loc) => {
+            setCustomerLoc(loc);
+            if (loc.address && !f.customer_address) setF((prev) => ({ ...prev, customer_address: loc.address! }));
+          }}
+        />
+      </Suspense>
       <FormField label="Order description"><Textarea rows={2} value={f.order_description} onChange={(e) => setF({ ...f, order_description: e.target.value })} required /></FormField>
       <div className="grid gap-3 md:grid-cols-2">
         <FormField label="Order amount (₹)"><Input type="number" min="0" value={f.order_amount} onChange={(e) => setF({ ...f, order_amount: e.target.value })} required /></FormField>
         <FormField label="Delivery charge (₹)"><Input type="number" min="0" value={f.delivery_charge} onChange={(e) => setF({ ...f, delivery_charge: e.target.value })} required /></FormField>
       </div>
+      <FormField label="Partner pays the shop by">
+        <div className="flex gap-2">
+          {(["cash", "upi"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setF({ ...f, payment_method: m })}
+              className={`flex-1 rounded-full border px-4 py-2 text-sm font-medium uppercase ${
+                f.payment_method === m ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground"
+              }`}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+      </FormField>
       <div className="rounded-2xl bg-primary/5 p-4">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Total customer pays</span>
@@ -308,6 +385,7 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
     </form>
   );
 }
+
 
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (

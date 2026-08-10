@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo } from "@/lib/orders";
@@ -50,9 +51,15 @@ function AdminDashboard() {
     if (error) return toast.error(error.message);
     toast.success("Updated"); load();
   };
+  const setVerification = async (id: string, status: "verified" | "active" | "rejected" | "resubmit") => {
+    const { error } = await supabase.from("drivers").update({ verification_status: status }).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success(`Marked ${status}`); load();
+  };
 
   const pendingShops = shops.filter((s) => s.approval_status === "pending");
   const pendingDrivers = drivers.filter((d) => d.approval_status === "pending");
+  const unverified = drivers.filter((d) => d.verification_status === "pending" || d.verification_status === "resubmit");
 
   return (
     <AppShell subtitle="Master Admin" title="Control room">
@@ -60,15 +67,17 @@ function AdminDashboard() {
         <Stat label="Shops" value={shops.filter((s) => s.approval_status === "approved").length} />
         <Stat label="Drivers" value={drivers.filter((d) => d.approval_status === "approved").length} />
         <Stat label="Delivered" value={orders.filter((o) => o.status === "delivered").length} />
-        <Stat label="Pending" value={pendingShops.length + pendingDrivers.length} accent />
+        <Stat label="Pending" value={pendingShops.length + pendingDrivers.length + unverified.length} accent />
       </div>
 
       <Tabs defaultValue="approvals" className="w-full">
-        <TabsList className="rounded-full bg-muted p-1">
+        <TabsList className="flex flex-wrap rounded-full bg-muted p-1">
           <TabsTrigger value="approvals" className="rounded-full">Approvals</TabsTrigger>
+          <TabsTrigger value="verify" className="rounded-full">Verification</TabsTrigger>
           <TabsTrigger value="shops" className="rounded-full">Shops</TabsTrigger>
           <TabsTrigger value="drivers" className="rounded-full">Drivers</TabsTrigger>
           <TabsTrigger value="orders" className="rounded-full">Orders</TabsTrigger>
+          <TabsTrigger value="settings" className="rounded-full">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="approvals" className="mt-6 space-y-6">
@@ -89,6 +98,28 @@ function AdminDashboard() {
               ))}
           </Section>
         </TabsContent>
+
+        <TabsContent value="verify" className="mt-6 space-y-2">
+          {unverified.length === 0 ? <Empty>Everyone is verified.</Empty> : unverified.map((d) => (
+            <div key={d.id} className="card-soft p-4">
+              <p className="font-semibold capitalize">{d.vehicle_type} · {d.vehicle_number ?? "no number"}</p>
+              <p className="text-xs text-muted-foreground">{d.home_address} · Cash cap {fmtINR(d.available_cash)}</p>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                {([["Gov ID", d.gov_id_url], ["Selfie", d.selfie_url], ["Licence", d.licence_url], ["RC", d.rc_url], ["Insurance", d.insurance_url], ["PUC", d.puc_url]] as const)
+                  .filter(([, url]) => !!url)
+                  .map(([label, url]) => (
+                    <a key={label} href={url!} target="_blank" rel="noreferrer" className="rounded-full border border-border px-3 py-1 hover:bg-muted">{label}</a>
+                  ))}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" className="rounded-full" onClick={() => setVerification(d.id, "rejected")}>Reject</Button>
+                <Button size="sm" variant="outline" className="rounded-full" onClick={() => setVerification(d.id, "resubmit")}>Ask to resubmit</Button>
+                <Button size="sm" className="rounded-full" onClick={() => setVerification(d.id, "verified")}>Verify</Button>
+              </div>
+            </div>
+          ))}
+        </TabsContent>
+
 
         <TabsContent value="shops" className="mt-6 space-y-2">
           {shops.map((s) => (
@@ -120,8 +151,58 @@ function AdminDashboard() {
             </div>
           ))}
         </TabsContent>
+        <TabsContent value="settings" className="mt-6">
+          <SettingsPanel />
+        </TabsContent>
       </Tabs>
     </AppShell>
+  );
+}
+
+function SettingsPanel() {
+  const [radius, setRadius] = useState("3");
+  const [expiry, setExpiry] = useState("10");
+  const [support, setSupport] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void supabase.from("app_settings").select("*").maybeSingle().then(({ data }) => {
+      if (!data) return;
+      setRadius(String(data.delivery_radius_km));
+      setExpiry(String(data.request_expiry_minutes));
+      setSupport(data.support_number ?? "");
+    });
+  }, []);
+
+  const save = async () => {
+    setBusy(true);
+    const { error } = await supabase.from("app_settings").update({
+      delivery_radius_km: Number(radius) || 3,
+      request_expiry_minutes: Number(expiry) || 10,
+      support_number: support || null,
+    }).eq("id", true);
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Settings saved");
+  };
+
+  return (
+    <div className="card-soft space-y-4 p-6">
+      <div>
+        <label className="text-sm font-medium">Delivery radius (km)</label>
+        <Input type="number" min="0.5" step="0.5" value={radius} onChange={(e) => setRadius(e.target.value)} className="mt-1.5" />
+        <p className="mt-1 text-xs text-muted-foreground">Only partners inside this radius see a shop's request.</p>
+      </div>
+      <div>
+        <label className="text-sm font-medium">Request expiry (minutes)</label>
+        <Input type="number" min="1" value={expiry} onChange={(e) => setExpiry(e.target.value)} className="mt-1.5" />
+      </div>
+      <div>
+        <label className="text-sm font-medium">Support number</label>
+        <Input value={support} onChange={(e) => setSupport(e.target.value)} placeholder="+91…" className="mt-1.5" />
+      </div>
+      <Button disabled={busy} onClick={save} className="h-11 w-full rounded-full font-semibold">{busy ? "Saving…" : "Save settings"}</Button>
+    </div>
   );
 }
 

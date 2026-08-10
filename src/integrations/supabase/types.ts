@@ -44,6 +44,36 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          created_at: string
+          delivery_radius_km: number
+          id: boolean
+          notifications_enabled: boolean
+          request_expiry_minutes: number
+          support_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_radius_km?: number
+          id?: boolean
+          notifications_enabled?: boolean
+          request_expiry_minutes?: number
+          support_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          delivery_radius_km?: number
+          id?: boolean
+          notifications_enabled?: boolean
+          request_expiry_minutes?: number
+          support_number?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       complaints: {
         Row: {
           admin_notes: string | null
@@ -92,62 +122,98 @@ export type Database = {
         Row: {
           approval_status: Database["public"]["Enums"]["approval_status"]
           available_cash: number
+          bank_details: string | null
           created_at: string
           current_lat: number | null
           current_lng: number | null
           date_of_birth: string | null
           emergency_contact: string | null
+          gov_id_number: string | null
           gov_id_url: string | null
           home_address: string | null
           id: string
+          insurance_url: string | null
           is_available: boolean
+          is_busy: boolean
+          is_online: boolean
+          licence_url: string | null
           location_updated_at: string | null
+          payout_upi: string | null
+          profile_photo_url: string | null
+          puc_url: string | null
           rating_avg: number
           rating_count: number
+          rc_url: string | null
           selfie_url: string | null
           updated_at: string
           vehicle_number: string | null
           vehicle_type: Database["public"]["Enums"]["vehicle_type"]
+          verification_notes: string | null
+          verification_status: Database["public"]["Enums"]["verification_status"]
         }
         Insert: {
           approval_status?: Database["public"]["Enums"]["approval_status"]
           available_cash?: number
+          bank_details?: string | null
           created_at?: string
           current_lat?: number | null
           current_lng?: number | null
           date_of_birth?: string | null
           emergency_contact?: string | null
+          gov_id_number?: string | null
           gov_id_url?: string | null
           home_address?: string | null
           id: string
+          insurance_url?: string | null
           is_available?: boolean
+          is_busy?: boolean
+          is_online?: boolean
+          licence_url?: string | null
           location_updated_at?: string | null
+          payout_upi?: string | null
+          profile_photo_url?: string | null
+          puc_url?: string | null
           rating_avg?: number
           rating_count?: number
+          rc_url?: string | null
           selfie_url?: string | null
           updated_at?: string
           vehicle_number?: string | null
           vehicle_type: Database["public"]["Enums"]["vehicle_type"]
+          verification_notes?: string | null
+          verification_status?: Database["public"]["Enums"]["verification_status"]
         }
         Update: {
           approval_status?: Database["public"]["Enums"]["approval_status"]
           available_cash?: number
+          bank_details?: string | null
           created_at?: string
           current_lat?: number | null
           current_lng?: number | null
           date_of_birth?: string | null
           emergency_contact?: string | null
+          gov_id_number?: string | null
           gov_id_url?: string | null
           home_address?: string | null
           id?: string
+          insurance_url?: string | null
           is_available?: boolean
+          is_busy?: boolean
+          is_online?: boolean
+          licence_url?: string | null
           location_updated_at?: string | null
+          payout_upi?: string | null
+          profile_photo_url?: string | null
+          puc_url?: string | null
           rating_avg?: number
           rating_count?: number
+          rc_url?: string | null
           selfie_url?: string | null
           updated_at?: string
           vehicle_number?: string | null
           vehicle_type?: Database["public"]["Enums"]["vehicle_type"]
+          verification_notes?: string | null
+          verification_status?: Database["public"]["Enums"]["verification_status"]
         }
         Relationships: []
       }
@@ -189,6 +255,41 @@ export type Database = {
           },
         ]
       }
+      order_status_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          id: string
+          note: string | null
+          order_id: string
+          status: Database["public"]["Enums"]["order_status"]
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          order_id: string
+          status: Database["public"]["Enums"]["order_status"]
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          order_id?: string
+          status?: Database["public"]["Enums"]["order_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_status_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           accepted_at: string | null
@@ -196,19 +297,27 @@ export type Database = {
           cancelled_at: string | null
           created_at: string
           customer_address: string
+          customer_lat: number | null
+          customer_lng: number | null
           customer_name: string
           customer_phone: string
           delivered_at: string | null
           delivery_charge: number
+          delivery_otp: string | null
           driver_id: string | null
+          expires_at: string | null
           id: string
           order_amount: number
           order_description: string
+          otp_verified: boolean
           out_for_delivery_at: string | null
+          payment_method: string
           payment_received_at: string | null
+          picked_up_at: string | null
           pickup_lat: number
           pickup_lng: number
           pickup_notes: string | null
+          radius_km: number
           reached_shop_at: string | null
           shop_id: string
           status: Database["public"]["Enums"]["order_status"]
@@ -221,19 +330,27 @@ export type Database = {
           cancelled_at?: string | null
           created_at?: string
           customer_address: string
+          customer_lat?: number | null
+          customer_lng?: number | null
           customer_name: string
           customer_phone: string
           delivered_at?: string | null
           delivery_charge: number
+          delivery_otp?: string | null
           driver_id?: string | null
+          expires_at?: string | null
           id?: string
           order_amount: number
           order_description: string
+          otp_verified?: boolean
           out_for_delivery_at?: string | null
+          payment_method?: string
           payment_received_at?: string | null
+          picked_up_at?: string | null
           pickup_lat: number
           pickup_lng: number
           pickup_notes?: string | null
+          radius_km?: number
           reached_shop_at?: string | null
           shop_id: string
           status?: Database["public"]["Enums"]["order_status"]
@@ -246,19 +363,27 @@ export type Database = {
           cancelled_at?: string | null
           created_at?: string
           customer_address?: string
+          customer_lat?: number | null
+          customer_lng?: number | null
           customer_name?: string
           customer_phone?: string
           delivered_at?: string | null
           delivery_charge?: number
+          delivery_otp?: string | null
           driver_id?: string | null
+          expires_at?: string | null
           id?: string
           order_amount?: number
           order_description?: string
+          otp_verified?: boolean
           out_for_delivery_at?: string | null
+          payment_method?: string
           payment_received_at?: string | null
+          picked_up_at?: string | null
           pickup_lat?: number
           pickup_lng?: number
           pickup_notes?: string | null
+          radius_km?: number
           reached_shop_at?: string | null
           shop_id?: string
           status?: Database["public"]["Enums"]["order_status"]
@@ -362,14 +487,19 @@ export type Database = {
           gst_number: string | null
           id: string
           latitude: number
+          licence_number: string | null
           longitude: number
+          owner_name: string | null
+          pan_number: string | null
           rating_avg: number
           rating_count: number
           shop_category: string
           shop_name: string
+          shop_phone: string | null
           shop_photo_url: string | null
           trade_license_url: string | null
           updated_at: string
+          verification_status: Database["public"]["Enums"]["verification_status"]
         }
         Insert: {
           address: string
@@ -379,14 +509,19 @@ export type Database = {
           gst_number?: string | null
           id: string
           latitude: number
+          licence_number?: string | null
           longitude: number
+          owner_name?: string | null
+          pan_number?: string | null
           rating_avg?: number
           rating_count?: number
           shop_category: string
           shop_name: string
+          shop_phone?: string | null
           shop_photo_url?: string | null
           trade_license_url?: string | null
           updated_at?: string
+          verification_status?: Database["public"]["Enums"]["verification_status"]
         }
         Update: {
           address?: string
@@ -396,14 +531,19 @@ export type Database = {
           gst_number?: string | null
           id?: string
           latitude?: number
+          licence_number?: string | null
           longitude?: number
+          owner_name?: string | null
+          pan_number?: string | null
           rating_avg?: number
           rating_count?: number
           shop_category?: string
           shop_name?: string
+          shop_phone?: string | null
           shop_photo_url?: string | null
           trade_license_url?: string | null
           updated_at?: string
+          verification_status?: Database["public"]["Enums"]["verification_status"]
         }
         Relationships: []
       }
@@ -433,6 +573,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_order: {
+        Args: { p_lat: number; p_lng: number; p_order_id: string }
+        Returns: Json
+      }
+      advance_order: {
+        Args: {
+          p_order_id: string
+          p_otp?: string
+          p_status: Database["public"]["Enums"]["order_status"]
+        }
+        Returns: Json
+      }
+      expire_stale_orders: { Args: never; Returns: undefined }
+      get_settings: {
+        Args: never
+        Returns: {
+          created_at: string
+          delivery_radius_km: number
+          id: boolean
+          notifications_enabled: boolean
+          request_expiry_minutes: number
+          support_number: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "app_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -448,18 +619,26 @@ export type Database = {
         Args: { driver_lat: number; driver_lng: number }
         Returns: {
           created_at: string
+          customer_address: string
+          customer_name: string
           delivery_charge: number
           distance_km: number
+          expires_at: string
           id: string
           order_amount: number
+          order_description: string
+          payment_method: string
           pickup_address: string
           pickup_lat: number
           pickup_lng: number
+          pickup_notes: string
           shop_id: string
           shop_name: string
+          shop_phone: string
           total_amount: number
         }[]
       }
+      resend_order: { Args: { p_order_id: string }; Returns: Json }
     }
     Enums: {
       app_role: "shopkeeper" | "driver" | "admin"
@@ -478,7 +657,21 @@ export type Database = {
         | "out_for_delivery"
         | "delivered"
         | "cancelled"
+        | "searching"
+        | "going_to_shop"
+        | "arrived_at_shop"
+        | "picked_up"
+        | "going_to_customer"
+        | "arrived_at_customer"
+        | "expired"
+        | "no_driver_found"
       vehicle_type: "walking" | "cycle" | "bike" | "car"
+      verification_status:
+        | "pending"
+        | "verified"
+        | "active"
+        | "rejected"
+        | "resubmit"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -623,8 +816,23 @@ export const Constants = {
         "out_for_delivery",
         "delivered",
         "cancelled",
+        "searching",
+        "going_to_shop",
+        "arrived_at_shop",
+        "picked_up",
+        "going_to_customer",
+        "arrived_at_customer",
+        "expired",
+        "no_driver_found",
       ],
       vehicle_type: ["walking", "cycle", "bike", "car"],
+      verification_status: [
+        "pending",
+        "verified",
+        "active",
+        "rejected",
+        "resubmit",
+      ],
     },
   },
 } as const

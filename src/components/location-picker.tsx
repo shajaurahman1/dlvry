@@ -29,6 +29,10 @@ interface Props {
   onChange: (loc: PickedLocation) => void;
   /** Show a small debug panel with permission / coords / errors while testing. */
   debug?: boolean;
+  title?: string;
+  hint?: string;
+  /** Hide the "use my GPS" button (e.g. picking a customer's address). */
+  allowGps?: boolean;
 }
 
 interface DebugInfo {
@@ -37,7 +41,24 @@ interface DebugInfo {
   lastError?: { code: number; message: string };
 }
 
-export function LocationPicker({ value, onChange, debug = true }: Props) {
+interface Suggestion { lat: number; lng: number; label: string }
+
+async function searchPlaces(q: string): Promise<Suggestion[]> {
+  const r = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=in&q=${encodeURIComponent(q)}`,
+  );
+  const d = (await r.json()) as Array<{ lat: string; lon: string; display_name: string }>;
+  return (d ?? []).map((x) => ({ lat: parseFloat(x.lat), lng: parseFloat(x.lon), label: x.display_name }));
+}
+
+export function LocationPicker({
+  value,
+  onChange,
+  debug = false,
+  title = "Shop location",
+  hint = "Choose your shop location. Delivery partners within the service radius will see your orders.",
+  allowGps = true,
+}: Props) {
   const [busy, setBusy] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [info, setInfo] = useState<DebugInfo>({
@@ -68,21 +89,23 @@ export function LocationPicker({ value, onChange, debug = true }: Props) {
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-border bg-muted/40 p-4">
-        <p className="text-sm font-medium">Shop location</p>
+        <p className="text-sm font-medium">{title}</p>
         <p className="mt-1 text-xs text-muted-foreground">
           {value
             ? `${value.lat.toFixed(5)}, ${value.lng.toFixed(5)}${value.accuracy ? ` · ±${Math.round(value.accuracy)} m` : ""}`
-            : "Choose your shop location. Drivers within 3 km will see your orders."}
+            : hint}
         </p>
-        {value?.address && <p className="mt-1 text-xs text-muted-foreground truncate">{value.address}</p>}
+        {value?.address && <p className="mt-1 truncate text-xs text-muted-foreground">{value.address}</p>}
 
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <Button type="button" variant="outline" onClick={captureGPS} disabled={busy} className="rounded-full">
-            {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Locate className="mr-1.5 h-4 w-4" />}
-            {value ? "Recapture GPS" : "Use current GPS"}
-          </Button>
+          {allowGps && (
+            <Button type="button" variant="outline" onClick={captureGPS} disabled={busy} className="rounded-full">
+              {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Locate className="mr-1.5 h-4 w-4" />}
+              {value ? "Recapture GPS" : "Use current GPS"}
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={() => setMapOpen(true)} className="rounded-full">
-            <MapPin className="mr-1.5 h-4 w-4" /> Pick on map
+            <Search className="mr-1.5 h-4 w-4" /> Search / pick on map
           </Button>
         </div>
       </div>
@@ -103,9 +126,9 @@ export function LocationPicker({ value, onChange, debug = true }: Props) {
       )}
 
       <Dialog open={mapOpen} onOpenChange={setMapOpen}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden">
+        <DialogContent className="max-w-2xl overflow-hidden p-0">
           <DialogHeader className="p-5 pb-2">
-            <DialogTitle>Pick shop location</DialogTitle>
+            <DialogTitle>{title}</DialogTitle>
           </DialogHeader>
           <MapPickerBody
             initial={value ?? undefined}
@@ -121,7 +144,21 @@ function MapPickerBody({ initial, onConfirm }: { initial?: PickedLocation; onCon
   const [pin, setPin] = useState<PickedLocation>(initial ?? { lat: 20.5937, lng: 78.9629 });
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<Suggestion[]>([]);
   const [address, setAddress] = useState<string | undefined>(initial?.address);
+
+  // Debounced type-ahead search
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 3) { setResults([]); return; }
+    const t = setTimeout(async () => {
+      setSearching(true);
+      try { setResults(await searchPlaces(q)); }
+      catch { /* ignore */ }
+      finally { setSearching(false); }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [query]);
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
@@ -131,34 +168,56 @@ function MapPickerBody({ initial, onConfirm }: { initial?: PickedLocation; onCon
     } catch { /* ignore */ }
   };
 
-  const search = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
-    setSearching(true);
+  const pick = (s: Suggestion) => {
+    setPin({ lat: s.lat, lng: s.lng });
+    setAddress(s.label);
+    setResults([]);
+    setQuery(s.label);
+  };
+
+  const useMyGps = async () => {
     try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`);
-      const d = await r.json();
-      if (!d?.[0]) return toast.error("No results");
-      const lat = parseFloat(d[0].lat), lng = parseFloat(d[0].lon);
-      setPin({ lat, lng });
-      setAddress(d[0].display_name);
-    } catch { toast.error("Search failed"); } finally { setSearching(false); }
+      const fix = await getPositionOnce();
+      setPin({ lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy });
+      void reverseGeocode(fix.lat, fix.lng);
+    } catch (e) { toast.error((e as Error).message); }
   };
 
   return (
     <div className="space-y-3 p-5 pt-0">
-      <form onSubmit={search} className="flex gap-2">
-        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search address, shop name, area…" />
-        <Button type="submit" variant="outline" disabled={searching} className="rounded-full">
-          {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-        </Button>
-      </form>
+      <div className="relative">
+        <div className="flex gap-2">
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search your location — address, shop name, area…"
+          />
+          <Button type="button" variant="outline" onClick={useMyGps} className="rounded-full" aria-label="Use my GPS">
+            <Locate className="h-4 w-4" />
+          </Button>
+        </div>
+        {(searching || results.length > 0) && (
+          <div className="absolute z-[1000] mt-1 max-h-56 w-full overflow-auto rounded-xl border border-border bg-card shadow-elevated">
+            {searching && <p className="p-3 text-xs text-muted-foreground">Searching…</p>}
+            {results.map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => pick(s)}
+                className="block w-full truncate border-b border-border/60 px-3 py-2 text-left text-xs last:border-0 hover:bg-muted"
+              >
+                <MapPin className="mr-1.5 inline h-3 w-3 text-primary" />{s.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="h-[360px] w-full overflow-hidden rounded-xl border border-border">
         <MapContainer center={[pin.lat, pin.lng]} zoom={initial ? 16 : 5} style={{ height: "100%", width: "100%" }}>
           <TileLayer
-            attribution='&copy; OpenStreetMap contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{y}/{x}.png"
+            attribution="&copy; OpenStreetMap contributors"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <DraggableMarker pin={pin} setPin={(p) => { setPin(p); void reverseGeocode(p.lat, p.lng); }} />
           <Recenter lat={pin.lat} lng={pin.lng} />
@@ -167,7 +226,7 @@ function MapPickerBody({ initial, onConfirm }: { initial?: PickedLocation; onCon
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Tap or drag the pin. {address ? <span className="block truncate">{address}</span> : "Choose your shop's exact spot."}
+        Tap or drag the pin. {address ? <span className="block truncate">{address}</span> : "Choose the exact spot."}
         <span className="block">Pin: {pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}</span>
       </p>
 
