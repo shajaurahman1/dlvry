@@ -73,7 +73,7 @@ function ShopDashboard() {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const today = orders.filter((o) => new Date(o.created_at) >= startOfDay);
     const month = orders.filter((o) => new Date(o.created_at) >= startOfMonth);
-    const active = orders.filter((o) => !["delivered", "cancelled"].includes(o.status));
+    const active = orders.filter((o) => !TERMINAL_STATUSES.includes(o.status));
     const delivered = orders.filter((o) => o.status === "delivered");
     const cancelled = orders.filter((o) => o.status === "cancelled");
     return {
@@ -97,8 +97,9 @@ function ShopDashboard() {
         case "today": return t >= startOfDay;
         case "week": return t >= weekAgo;
         case "month": return t >= monthAgo;
-        case "pending": return o.status === "pending";
-        case "active": return !["delivered", "cancelled", "pending"].includes(o.status);
+        case "pending": return SEARCHING_STATUSES.includes(o.status);
+        case "active": return !TERMINAL_STATUSES.includes(o.status) && !SEARCHING_STATUSES.includes(o.status);
+        case "cancelled": return ["cancelled", "expired", "no_driver_found"].includes(o.status);
         case "completed": return o.status === "delivered";
         case "cancelled": return o.status === "cancelled";
         default: return true;
