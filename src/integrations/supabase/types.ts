@@ -573,6 +573,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_order: {
+        Args: { p_lat: number; p_lng: number; p_order_id: string }
+        Returns: Json
+      }
+      advance_order: {
+        Args: {
+          p_order_id: string
+          p_otp?: string
+          p_status: Database["public"]["Enums"]["order_status"]
+        }
+        Returns: Json
+      }
+      expire_stale_orders: { Args: never; Returns: undefined }
+      get_settings: {
+        Args: never
+        Returns: {
+          created_at: string
+          delivery_radius_km: number
+          id: boolean
+          notifications_enabled: boolean
+          request_expiry_minutes: number
+          support_number: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "app_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -588,18 +619,26 @@ export type Database = {
         Args: { driver_lat: number; driver_lng: number }
         Returns: {
           created_at: string
+          customer_address: string
+          customer_name: string
           delivery_charge: number
           distance_km: number
+          expires_at: string
           id: string
           order_amount: number
+          order_description: string
+          payment_method: string
           pickup_address: string
           pickup_lat: number
           pickup_lng: number
+          pickup_notes: string
           shop_id: string
           shop_name: string
+          shop_phone: string
           total_amount: number
         }[]
       }
+      resend_order: { Args: { p_order_id: string }; Returns: Json }
     }
     Enums: {
       app_role: "shopkeeper" | "driver" | "admin"
