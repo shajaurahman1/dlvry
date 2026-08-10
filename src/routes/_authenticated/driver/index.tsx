@@ -4,9 +4,11 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useLiveLocation } from "@/lib/geo";
-import { MapPin, Navigation, Phone, Package, Wallet, TrendingUp, CheckCircle2, XCircle } from "lucide-react";
-import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo } from "@/lib/orders";
+import { MapPin, Navigation, Phone, Package, Wallet, TrendingUp, CheckCircle2, XCircle, ShieldCheck } from "lucide-react";
+import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo, minutesLeft } from "@/lib/orders";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -19,7 +21,9 @@ interface NearbyOrder {
   id: string; shop_id: string; shop_name: string; pickup_address: string;
   order_amount: number; delivery_charge: number; total_amount: number;
   pickup_lat: number; pickup_lng: number; distance_km: number; created_at: string;
+  payment_method: string; expires_at: string | null;
 }
+
 
 function DriverDashboard() {
   const { user, roles, loading } = useAuth();
