@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
@@ -9,10 +9,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Clock, CheckCircle2, PackageCheck, Settings, XCircle, Truck, CalendarDays } from "lucide-react";
-import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo } from "@/lib/orders";
+import { Plus, Clock, CheckCircle2, PackageCheck, Settings, XCircle, Truck, CalendarDays, RefreshCw } from "lucide-react";
+import {
+  ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo,
+  minutesLeft, SEARCHING_STATUSES, TERMINAL_STATUSES,
+} from "@/lib/orders";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import type { PickedLocation } from "@/components/location-picker";
+
+const LocationPicker = lazy(() =>
+  import("@/components/location-picker").then((m) => ({ default: m.LocationPicker }))
+);
+
 
 export const Route = createFileRoute("/_authenticated/shop/")({ component: ShopDashboard });
 
