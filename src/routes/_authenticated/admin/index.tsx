@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo } from "@/lib/orders";
@@ -150,8 +151,58 @@ function AdminDashboard() {
             </div>
           ))}
         </TabsContent>
+        <TabsContent value="settings" className="mt-6">
+          <SettingsPanel />
+        </TabsContent>
       </Tabs>
     </AppShell>
+  );
+}
+
+function SettingsPanel() {
+  const [radius, setRadius] = useState("3");
+  const [expiry, setExpiry] = useState("10");
+  const [support, setSupport] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void supabase.from("app_settings").select("*").maybeSingle().then(({ data }) => {
+      if (!data) return;
+      setRadius(String(data.delivery_radius_km));
+      setExpiry(String(data.request_expiry_minutes));
+      setSupport(data.support_number ?? "");
+    });
+  }, []);
+
+  const save = async () => {
+    setBusy(true);
+    const { error } = await supabase.from("app_settings").update({
+      delivery_radius_km: Number(radius) || 3,
+      request_expiry_minutes: Number(expiry) || 10,
+      support_number: support || null,
+    }).eq("id", true);
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Settings saved");
+  };
+
+  return (
+    <div className="card-soft space-y-4 p-6">
+      <div>
+        <label className="text-sm font-medium">Delivery radius (km)</label>
+        <Input type="number" min="0.5" step="0.5" value={radius} onChange={(e) => setRadius(e.target.value)} className="mt-1.5" />
+        <p className="mt-1 text-xs text-muted-foreground">Only partners inside this radius see a shop's request.</p>
+      </div>
+      <div>
+        <label className="text-sm font-medium">Request expiry (minutes)</label>
+        <Input type="number" min="1" value={expiry} onChange={(e) => setExpiry(e.target.value)} className="mt-1.5" />
+      </div>
+      <div>
+        <label className="text-sm font-medium">Support number</label>
+        <Input value={support} onChange={(e) => setSupport(e.target.value)} placeholder="+91…" className="mt-1.5" />
+      </div>
+      <Button disabled={busy} onClick={save} className="h-11 w-full rounded-full font-semibold">{busy ? "Saving…" : "Save settings"}</Button>
+    </div>
   );
 }
 
