@@ -58,6 +58,7 @@ function DriverDashboard() {
 
   const loadOrders = useCallback(async () => {
     if (!user) return;
+    void supabase.rpc("expire_stale_orders");
     const [{ data: rpc }, { data: mine }, { data: hist }] = await Promise.all([
       loc.status === "granted"
         ? supabase.rpc("nearby_orders", { driver_lat: loc.coords.lat, driver_lng: loc.coords.lng })
@@ -217,8 +218,14 @@ function DriverDashboard() {
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Available requests</h2>
             {nearby.length === 0 ? (
               <div className="card-soft p-10 text-center">
-                <p className="font-serif-italic text-muted-foreground">No orders nearby.</p>
-                <p className="mt-2 text-sm text-muted-foreground">We only show orders within 3 km of your live location.</p>
+                <p className="font-serif-italic text-muted-foreground">
+                  {driver.is_online ? "No orders nearby." : "You're offline."}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {driver.is_online
+                    ? "We only show orders within 3 km of your live location."
+                    : "Go online to start receiving pickup requests near you."}
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
