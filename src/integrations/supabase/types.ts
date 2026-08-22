@@ -615,6 +615,10 @@ export type Database = {
         Args: { lat1: number; lat2: number; lon1: number; lon2: number }
         Returns: number
       }
+      is_active_driver: { Args: never; Returns: boolean }
+      is_driver_of_order_shop: { Args: { _shop: string }; Returns: boolean }
+      is_order_counterparty: { Args: { _other: string }; Returns: boolean }
+      is_shop_of_order_driver: { Args: { _driver: string }; Returns: boolean }
       nearby_orders: {
         Args: { driver_lat: number; driver_lng: number }
         Returns: {
