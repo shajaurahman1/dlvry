@@ -1,6 +1,12 @@
 import { cn } from "@/lib/utils";
 
-export function DlvryLogo({ className, tone = "dark" }: { className?: string; tone?: "dark" | "light" }) {
+export function DlvryLogo({
+  className,
+  tone = "dark",
+}: {
+  className?: string;
+  tone?: "dark" | "light";
+}) {
   return (
     <span
       className={cn(
@@ -10,7 +16,9 @@ export function DlvryLogo({ className, tone = "dark" }: { className?: string; to
       )}
     >
       <span>DLVR</span>
-      <span className="font-serif-italic font-normal text-[1.15em] leading-none translate-y-[0.05em]">y</span>
+      <span className="font-serif-italic font-normal text-[1.15em] leading-none translate-y-[0.05em]">
+        y
+      </span>
     </span>
   );
 }

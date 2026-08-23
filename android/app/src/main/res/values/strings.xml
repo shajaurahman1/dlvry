@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">dlvry</string>
+    <string name="title_activity_main">dlvry</string>
+    <string name="package_name">app.dlvry</string>
+    <string name="custom_url_scheme">app.dlvry</string>
+</resources>

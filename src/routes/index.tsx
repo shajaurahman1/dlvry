@@ -19,12 +19,16 @@ function Landing() {
 
       <main className="mx-auto max-w-6xl px-6">
         <section className="pt-16 pb-24 text-center md:pt-28 md:pb-32">
-          <p className="font-serif-italic text-lg text-muted-foreground">Hyperlocal, humanly done.</p>
+          <p className="font-serif-italic text-lg text-muted-foreground">
+            Hyperlocal, humanly done.
+          </p>
           <h1 className="mx-auto mt-4 max-w-4xl text-5xl font-black leading-[1.02] tracking-[-0.035em] md:text-7xl">
-            Delivery that starts with <span className="font-serif-italic font-normal text-primary">a phone call.</span>
+            Delivery that starts with{" "}
+            <span className="font-serif-italic font-normal text-primary">a phone call.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-base text-muted-foreground md:text-lg">
-            DLVRY connects neighborhood shops with nearby delivery partners. No customer app. No payment gateway. Just a call, a driver, and a doorstep.
+            DLVRY connects neighborhood shops with nearby delivery partners. No customer app. No
+            payment gateway. Just a call, a driver, and a doorstep.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
@@ -46,9 +50,21 @@ function Landing() {
 
         <section className="grid gap-4 pb-24 md:grid-cols-3">
           {[
-            { icon: PhoneCall, title: "Customer calls the shop", body: "No app for the customer. Ever. They call, the shop takes the order." },
-            { icon: Package, title: "Shop creates a request", body: "Nearby partners within 3 km see the pickup and accept in seconds." },
-            { icon: MapPin, title: "Driver delivers, cash settles", body: "Driver pays the shop, delivers, and collects at the door. DLVRY never touches money." },
+            {
+              icon: PhoneCall,
+              title: "Customer calls the shop",
+              body: "No app for the customer. Ever. They call, the shop takes the order.",
+            },
+            {
+              icon: Package,
+              title: "Shop creates a request",
+              body: "Nearby partners within 3 km see the pickup and accept in seconds.",
+            },
+            {
+              icon: MapPin,
+              title: "Driver delivers, cash settles",
+              body: "Driver pays the shop, delivers, and collects at the door. DLVRY never touches money.",
+            },
           ].map((f, i) => (
             <div key={i} className="card-soft p-8">
               <f.icon className="h-6 w-6 text-primary" strokeWidth={1.6} />
@@ -64,7 +80,8 @@ function Landing() {
             No wallet. No gateway. No commission held.
           </h2>
           <p className="max-w-lg text-sm text-muted-foreground">
-            DLVRY is only a delivery connector. Money moves directly between the driver, the shop, and the customer.
+            DLVRY is only a delivery connector. Money moves directly between the driver, the shop,
+            and the customer.
           </p>
           <Link
             to="/auth"

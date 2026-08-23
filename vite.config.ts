@@ -22,7 +22,7 @@ function prerenderServerEntryShim(): Plugin {
       const distDir = resolve(process.cwd(), "dist/server");
       mkdirSync(distDir, { recursive: true });
       writeFileSync(
-        resolve(distDir, "index.mjs"),
+        resolve(distDir, "server.js"),
         [
           "import handler from '../../.output/server/index.mjs';",
           "// The preview server passes a Node-backed Request whose `ip` is a read-only getter;",
@@ -44,7 +44,6 @@ function prerenderServerEntryShim(): Plugin {
         ].join("\n"),
       );
     },
-
   };
 }
 

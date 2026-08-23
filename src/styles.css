@@ -54,48 +54,58 @@
   --radius: 0.875rem;
 
   /* DLVRY palette */
-  --background: oklch(0.972 0.012 90);       /* #F7F4ED beige */
-  --foreground: oklch(0.185 0 0);            /* #1A1A1A */
+  --background: oklch(0.972 0.012 90); /* #F7F4ED beige */
+  --foreground: oklch(0.185 0 0); /* #1A1A1A */
 
-  --card: oklch(1 0 0);                       /* white */
+  --card: oklch(1 0 0); /* white */
   --card-foreground: oklch(0.185 0 0);
 
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.185 0 0);
 
-  --primary: oklch(0.464 0.115 148);          /* #2E7D32 green */
+  --primary: oklch(0.464 0.115 148); /* #2E7D32 green */
   --primary-foreground: oklch(0.985 0 0);
 
-  --secondary: oklch(0.6 0.147 148);          /* #4CAF50 */
+  --secondary: oklch(0.6 0.147 148); /* #4CAF50 */
   --secondary-foreground: oklch(0.985 0 0);
 
   --muted: oklch(0.955 0.012 90);
-  --muted-foreground: oklch(0.5 0 0);         /* #666 */
+  --muted-foreground: oklch(0.5 0 0); /* #666 */
 
   --accent: oklch(0.955 0.014 90);
   --accent-foreground: oklch(0.185 0 0);
 
-  --destructive: oklch(0.541 0.202 27);       /* #D32F2F */
+  --destructive: oklch(0.541 0.202 27); /* #D32F2F */
   --destructive-foreground: oklch(0.985 0 0);
 
   --success: oklch(0.464 0.115 148);
-  --warning: oklch(0.78 0.148 79);            /* #F9A825 */
+  --warning: oklch(0.78 0.148 79); /* #F9A825 */
 
-  --border: oklch(0.905 0.012 84);            /* #E8E3D8 */
+  --border: oklch(0.905 0.012 84); /* #E8E3D8 */
   --input: oklch(0.905 0.012 84);
   --ring: oklch(0.464 0.115 148);
 }
 
 @layer base {
-  * { border-color: var(--color-border); }
-  html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     font-feature-settings: "cv11", "ss01";
   }
-  h1, h2, h3, h4 { letter-spacing: -0.02em; }
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.02em;
+  }
 }
 
 @utility font-serif-italic {

@@ -17,11 +17,11 @@ Built by **Shajau Rahman**.
 
 ## Roles
 
-| Role | Home | Notes |
-| --- | --- | --- |
-| `shopkeeper` | `/shop` | Creates orders, marks payment received. |
-| `driver` | `/driver` | Sees nearby orders (≤3 km), accepts, delivers. |
-| `admin` | `/admin` | Approves shops / drivers, monitors orders. |
+| Role         | Home      | Notes                                          |
+| ------------ | --------- | ---------------------------------------------- |
+| `shopkeeper` | `/shop`   | Creates orders, marks payment received.        |
+| `driver`     | `/driver` | Sees nearby orders (≤3 km), accepts, delivers. |
+| `admin`      | `/admin`  | Approves shops / drivers, monitors orders.     |
 
 ### Master Admin
 
@@ -34,11 +34,11 @@ Built by **Shajau Rahman**.
 
 The frontend reads these at build time (already set in `.env`, injected by Lovable Cloud):
 
-| Variable | Purpose |
-| --- | --- |
-| `VITE_SUPABASE_URL` | Backend URL |
+| Variable                        | Purpose                               |
+| ------------------------------- | ------------------------------------- |
+| `VITE_SUPABASE_URL`             | Backend URL                           |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Public anon key (safe in the browser) |
-| `VITE_SUPABASE_PROJECT_ID` | Project identifier |
+| `VITE_SUPABASE_PROJECT_ID`      | Project identifier                    |
 
 Server-only equivalents (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) are used by server functions and are not exposed to the client.
 
