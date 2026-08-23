@@ -19,7 +19,7 @@ function prerenderServerEntryShim(): Plugin {
     apply: "build",
     enforce: "post",
     writeBundle() {
-      const dir = resolve(process.cwd(), "output/server");
+      const dir = resolve(process.cwd(), ".output/server");
       mkdirSync(dir, { recursive: true });
       writeFileSync(
         resolve(dir, "server.js"),
