@@ -19,12 +19,12 @@ function prerenderServerEntryShim(): Plugin {
     apply: "build",
     enforce: "post",
     writeBundle() {
-      const dir = resolve(process.cwd(), ".output/server");
-      mkdirSync(dir, { recursive: true });
+      const distDir = resolve(process.cwd(), "dist/server");
+      mkdirSync(distDir, { recursive: true });
       writeFileSync(
-        resolve(dir, "server.js"),
+        resolve(distDir, "index.mjs"),
         [
-          "import handler from './index.mjs';",
+          "import handler from '../../.output/server/index.mjs';",
           "// The preview server passes a Node-backed Request whose `ip` is a read-only getter;",
           "// the worker entry augments it, so hand it a plain Request copy instead.",
           "export default {",
