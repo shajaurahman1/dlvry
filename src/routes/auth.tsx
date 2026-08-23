@@ -128,16 +128,38 @@ function AuthPage() {
             {tab === "signup" && (
               <div>
                 <Label htmlFor="name">Full name</Label>
-                <Input id="name" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your name" className="mt-1.5" />
+                <Input
+                  id="name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Your name"
+                  className="mt-1.5"
+                />
               </div>
             )}
             <div>
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="mt-1.5" required />
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="mt-1.5"
+                required
+              />
             </div>
             <div>
               <Label htmlFor="pw">Password</Label>
-              <Input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="mt-1.5" required />
+              <Input
+                id="pw"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="mt-1.5"
+                required
+              />
             </div>
             {tab === "signup" && (
               <label className="flex items-start gap-2.5 rounded-xl border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
@@ -149,17 +171,29 @@ function AuthPage() {
                 />
                 <span>
                   I have read and agree to the{" "}
-                  <Link to="/terms" className="font-medium text-primary underline underline-offset-2">Terms &amp; Conditions</Link>.
+                  <Link
+                    to="/terms"
+                    className="font-medium text-primary underline underline-offset-2"
+                  >
+                    Terms &amp; Conditions
+                  </Link>
+                  .
                 </span>
               </label>
             )}
-            <Button type="submit" disabled={busy || (tab === "signup" && !acceptTerms)} className="h-11 w-full rounded-full text-sm font-semibold">
+            <Button
+              type="submit"
+              disabled={busy || (tab === "signup" && !acceptTerms)}
+              className="h-11 w-full rounded-full text-sm font-semibold"
+            >
               {busy ? "Please wait…" : tab === "signin" ? "Sign in" : "Create account"}
             </Button>
           </form>
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          <Link to="/terms" className="underline underline-offset-2">Terms &amp; Conditions</Link>
+          <Link to="/terms" className="underline underline-offset-2">
+            Terms &amp; Conditions
+          </Link>
         </p>
       </div>
     </div>

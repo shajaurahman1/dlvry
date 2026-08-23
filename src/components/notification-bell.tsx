@@ -31,11 +31,18 @@ export function NotificationBell() {
       .channel(`notif-${user.id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
         () => load(),
       )
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      supabase.removeChannel(ch);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -43,12 +50,22 @@ export function NotificationBell() {
 
   const markAllRead = async () => {
     if (!user || unread === 0) return;
-    await supabase.from("notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
+    await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("user_id", user.id)
+      .eq("read", false);
     load();
   };
 
   return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) markAllRead(); }}>
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (o) markAllRead();
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           aria-label="Notifications"
@@ -72,7 +89,9 @@ export function NotificationBell() {
               <div key={n.id} className="border-b border-border/60 px-4 py-3 last:border-0">
                 <p className="text-sm font-medium">{n.title}</p>
                 {n.body && <p className="mt-0.5 text-xs text-muted-foreground">{n.body}</p>}
-                <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">{timeAgo(n.created_at)}</p>
+                <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {timeAgo(n.created_at)}
+                </p>
               </div>
             ))
           )}

@@ -14,11 +14,11 @@ export interface FixResult {
 export type PermissionState = "granted" | "prompt" | "denied" | "unknown";
 
 export type LocationStatus =
-  | "loading"       // first attempt in flight, no fix yet
-  | "searching"     // taking a while but permission ok — keep trying
-  | "granted"       // have a live fix
-  | "denied"        // user blocked permission
-  | "unavailable";  // no GPS / no geolocation API
+  | "loading" // first attempt in flight, no fix yet
+  | "searching" // taking a while but permission ok — keep trying
+  | "granted" // have a live fix
+  | "denied" // user blocked permission
+  | "unavailable"; // no GPS / no geolocation API
 
 export type LocationState =
   | { status: "loading"; retry: () => void }
@@ -105,7 +105,9 @@ export function useLiveLocation(watch = true): LocationState {
           timeout: 20000,
           maximumAge: 5000,
         });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     // Background poll — recovers from transient failures without user action.
@@ -133,9 +135,15 @@ export function useLiveLocation(watch = true): LocationState {
       else if (permObj.state === "denied") setStatus("denied");
     };
     if ("permissions" in navigator) {
-      navigator.permissions.query({ name: "geolocation" as PermissionName })
-        .then((p) => { permObj = p; p.addEventListener("change", onPermChange); })
-        .catch(() => { /* ignore */ });
+      navigator.permissions
+        .query({ name: "geolocation" as PermissionName })
+        .then((p) => {
+          permObj = p;
+          p.addEventListener("change", onPermChange);
+        })
+        .catch(() => {
+          /* ignore */
+        });
     }
 
     return () => {
@@ -159,14 +167,17 @@ export function getPositionOnce(): Promise<FixResult> {
       return reject(new Error("Geolocation is not supported by this browser"));
     }
     navigator.geolocation.getCurrentPosition(
-      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }),
+      (p) =>
+        resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }),
       (e) => {
         const messages: Record<number, string> = {
           1: "Location permission denied. Please allow location in your browser settings.",
           2: "Location unavailable. Please check GPS / network and try again.",
           3: "Location request timed out. Please try again.",
         };
-        const err = new Error(messages[e.code] ?? e.message ?? "Failed to get location") as Error & { code?: number };
+        const err = new Error(
+          messages[e.code] ?? e.message ?? "Failed to get location",
+        ) as Error & { code?: number };
         err.code = e.code;
         reject(err);
       },

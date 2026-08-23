@@ -53,7 +53,7 @@ export const DRIVER_FLOW = [
 ] as const;
 
 export function fmtINR(n: number | string | null | undefined) {
-  const v = typeof n === "string" ? Number(n) : n ?? 0;
+  const v = typeof n === "string" ? Number(n) : (n ?? 0);
   return `₹${(v as number).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }
 
