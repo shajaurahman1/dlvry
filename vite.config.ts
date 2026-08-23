@@ -50,6 +50,8 @@ function prerenderServerEntryShim(): Plugin {
 
 export default defineConfig({
   tanstackStart: {
+    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
+    server: { entry: "server" },
     // SPA shell prerender: emits a static dist/client/index.html that boots the client
     // router. Required for Capacitor, which ships static web assets with no server.
     spa: {
