@@ -23,9 +23,26 @@ function prerenderServerEntryShim(): Plugin {
       mkdirSync(dir, { recursive: true });
       writeFileSync(
         resolve(dir, "server.js"),
-        "export { default } from './index.mjs';\nexport * from './index.mjs';\n",
+        [
+          "import handler from './index.mjs';",
+          "// The preview server passes a Node-backed Request whose `ip` is a read-only getter;",
+          "// the worker entry augments it, so hand it a plain Request copy instead.",
+          "export default {",
+          "  async fetch(request, env, ctx) {",
+          "    const hasBody = request.method !== 'GET' && request.method !== 'HEAD';",
+          "    const copy = new Request(request.url, {",
+          "      method: request.method,",
+          "      headers: request.headers,",
+          "      body: hasBody ? await request.arrayBuffer() : undefined,",
+          "    });",
+          "    return handler.fetch(copy, env, ctx);",
+          "  },",
+          "};",
+          "",
+        ].join("\n"),
       );
     },
+
   };
 }
 
