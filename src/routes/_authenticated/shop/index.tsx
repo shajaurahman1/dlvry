@@ -101,6 +101,7 @@ function ShopDashboard() {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const today = orders.filter((o) => new Date(o.created_at) >= startOfDay);
     const month = orders.filter((o) => new Date(o.created_at) >= startOfMonth);
     const active = orders.filter((o) => !TERMINAL_STATUSES.includes(o.status));
     const delivered = orders.filter((o) => o.status === "delivered");
