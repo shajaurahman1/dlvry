@@ -23,30 +23,23 @@ export function platformName(): "android" | "ios" | "web" {
   return p === "android" || p === "ios" ? p : "web";
 }
 
-/** Opens the OS app-settings screen (native only). Returns false on web. */
+/**
+ * Opens the OS settings screen for this app when running on Android.
+ * Uses the Capacitor bridge's generic plugin call so no extra plugin is needed;
+ * falls back to `false` when unavailable so callers can show guidance instead.
+ */
 export async function openAppSettings(): Promise<boolean> {
   if (!isNativeApp()) return false;
   try {
-    const { NativeSettings, AndroidSettings, IOSSettings } = await import(
-      /* @vite-ignore */ "capacitor-native-settings"
-    ).catch(() => ({}) as never);
-    if (NativeSettings) {
-      await NativeSettings.open({
-        optionAndroid: AndroidSettings.ApplicationDetails,
-        optionIOS: IOSSettings.App,
-      });
-      return true;
-    }
-  } catch {
-    /* plugin not installed — fall through */
-  }
-  try {
     const { App } = await import("@capacitor/app");
-    // Best effort: reopening the app info screen is not available without the
-    // settings plugin, so we at least surface the OS location settings intent.
-    await App.getInfo();
+    const info = await App.getInfo();
+    const url = `package:${info.id}`;
+    const anyWindow = window as unknown as {
+      Capacitor?: { Plugins?: { App?: { openUrl?: (o: { url: string }) => Promise<unknown> } } };
+    };
+    await anyWindow.Capacitor?.Plugins?.App?.openUrl?.({ url });
+    return true;
   } catch {
-    /* ignore */
+    return false;
   }
-  return false;
 }
