@@ -68,7 +68,7 @@ function DriverDashboard() {
   }, [loadDriver]);
 
   useEffect(() => {
-    if (loc.status !== "granted" || !user) return;
+    if (loc.status !== "granted" || !loc.coords || !user) return;
     void supabase
       .from("drivers")
       .update({
@@ -83,7 +83,7 @@ function DriverDashboard() {
     if (!user) return;
     void supabase.rpc("expire_stale_orders");
     const [{ data: rpc }, { data: mine }, { data: hist }] = await Promise.all([
-      loc.status === "granted"
+      loc.status === "granted" && loc.coords
         ? supabase.rpc("nearby_orders", { driver_lat: loc.coords.lat, driver_lng: loc.coords.lng })
         : Promise.resolve({ data: [] as NearbyOrder[] }),
       supabase
@@ -184,7 +184,9 @@ function DriverDashboard() {
     };
   }, [history]);
 
-  if (loc.status !== "granted") return <LocationBlock state={loc.status} onRetry={loc.retry} />;
+  if (loc.status !== "granted" || !loc.coords)
+    return <LocationBlock state={loc.status} onRetry={loc.retry} />;
+  const coords = loc.coords;
 
   if (!driver) {
     return (
@@ -243,7 +245,7 @@ function DriverDashboard() {
                 : "Offline"}
           </p>
           <p className="truncate text-xs text-muted-foreground">
-            {loc.coords.lat.toFixed(4)}, {loc.coords.lng.toFixed(4)} · Cash cap{" "}
+            {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)} · Cash cap{" "}
             {fmtINR(driver.available_cash)}
           </p>
         </div>
@@ -332,7 +334,7 @@ function DriverDashboard() {
             ) : (
               <div className="space-y-3">
                 {nearby.map((o) => (
-                  <NearbyCard key={o.id} order={o} onAccepted={loadOrders} coords={loc.coords} />
+                  <NearbyCard key={o.id} order={o} onAccepted={loadOrders} coords={coords} />
                 ))}
               </div>
             )}
