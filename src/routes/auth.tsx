@@ -51,6 +51,26 @@ function AuthPage() {
     }
   }, [loading, user, roles, navigate]);
 
+  const forgotPassword = async () => {
+    const em = email.trim().toLowerCase();
+    if (!em.endsWith("@gmail.com")) {
+      toast.error("Enter your @gmail.com address first.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(em, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+      if (error) throw error;
+      toast.success("Password reset link sent. Check your Gmail inbox.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Couldn't send the reset link.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = schema.safeParse({ email, password, fullName });
@@ -188,6 +208,15 @@ function AuthPage() {
             >
               {busy ? "Please wait…" : tab === "signin" ? "Sign in" : "Create account"}
             </Button>
+            {tab === "signin" && (
+              <button
+                type="button"
+                onClick={forgotPassword}
+                className="w-full text-center text-xs font-medium text-muted-foreground underline underline-offset-2"
+              >
+                Forgot password?
+              </button>
+            )}
           </form>
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground">
