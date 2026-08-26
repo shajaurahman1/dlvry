@@ -188,6 +188,15 @@ function AuthPage() {
             >
               {busy ? "Please wait…" : tab === "signin" ? "Sign in" : "Create account"}
             </Button>
+            {tab === "signin" && (
+              <button
+                type="button"
+                onClick={forgotPassword}
+                className="w-full text-center text-xs font-medium text-muted-foreground underline underline-offset-2"
+              >
+                Forgot password?
+              </button>
+            )}
           </form>
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground">
