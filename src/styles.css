@@ -127,3 +127,12 @@
   border-radius: var(--radius-2xl);
   box-shadow: var(--shadow-elevated);
 }
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
