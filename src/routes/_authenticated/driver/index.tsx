@@ -185,7 +185,7 @@ function DriverDashboard() {
   }, [history]);
 
   if (loc.status !== "granted" || !loc.coords)
-    return <LocationBlock state={loc.status} onRetry={loc.retry} />;
+    return <LocationGate state={loc.status} onRetry={loc.retry} />;
   const coords = loc.coords;
 
   if (!driver) {
