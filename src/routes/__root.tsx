@@ -14,6 +14,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
 import { MadeByFooter } from "@/components/site-footer";
+import { useNativeShell } from "@/lib/native";
 
 function NotFoundComponent() {
   return (
