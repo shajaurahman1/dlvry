@@ -13,10 +13,10 @@
   },
   "dependencies": {
     "@capacitor/android": "^6.2.1",
-    "@capacitor/app": "^6",
+    "@capacitor/app": "^6.0.3",
     "@capacitor/core": "^6.2.1",
-    "@capacitor/geolocation": "^6",
-    "@capacitor/status-bar": "^6",
+    "@capacitor/geolocation": "^6.1.1",
+    "@capacitor/status-bar": "^6.0.3",
     "@fontsource/cormorant-garamond": "^5.2.11",
     "@fontsource/inter": "^5.2.8",
     "@hookform/resolvers": "^5.2.2",
