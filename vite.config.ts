@@ -24,7 +24,7 @@ function prerenderServerEntryShim(): Plugin {
       writeFileSync(
         resolve(distDir, "server.js"),
         [
-          "import handler from '../../.output/server/index.mjs';",
+          "import handler from './index.mjs';",
           "// The preview server passes a Node-backed Request whose `ip` is a read-only getter;",
           "// the worker entry augments it, so hand it a plain Request copy instead.",
           "export default {",

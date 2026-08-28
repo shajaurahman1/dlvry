@@ -643,6 +643,10 @@ export type Database = {
         }[]
       }
       resend_order: { Args: { p_order_id: string }; Returns: Json }
+      set_driver_location: {
+        Args: { p_lat: number; p_lng: number }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "shopkeeper" | "driver" | "admin"
