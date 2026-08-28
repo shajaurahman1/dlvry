@@ -294,6 +294,7 @@ function DriverDashboard() {
               return toast.error(error.message);
             }
             toast.success(on ? "You're online" : "You're offline");
+            if (on) await pushLocation();
             void loadOrders();
           }}
         />
