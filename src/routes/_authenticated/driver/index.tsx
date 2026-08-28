@@ -68,24 +68,33 @@ function DriverDashboard() {
     void loadDriver();
   }, [loadDriver]);
 
+  // Keep the latest fix in a ref so callbacks stay stable (no resubscribe loops).
+  const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  const locReady = loc.status === "granted" && !!loc.coords;
+  const locLat = loc.coords?.lat;
+  const locLng = loc.coords?.lng;
+  if (loc.status === "granted" && loc.coords) coordsRef.current = loc.coords;
+
+  const pushLocation = useCallback(async () => {
+    const c = coordsRef.current;
+    if (!c || !user) return;
+    const { error } = await supabase.rpc("set_driver_location", { p_lat: c.lat, p_lng: c.lng });
+    if (error) console.error("[dlvry] failed to save driver location", error.message);
+  }, [user]);
+
+  // Persist the driver's live position whenever it changes (rounded to ~10m).
   useEffect(() => {
-    if (loc.status !== "granted" || !loc.coords || !user) return;
-    void supabase
-      .from("drivers")
-      .update({
-        current_lat: loc.coords.lat,
-        current_lng: loc.coords.lng,
-        location_updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
-  }, [loc, user]);
+    if (!locReady) return;
+    void pushLocation();
+  }, [locReady, locLat, locLng, pushLocation]);
 
   const loadOrders = useCallback(async () => {
     if (!user) return;
     void supabase.rpc("expire_stale_orders");
+    const c = coordsRef.current;
     const [{ data: rpc }, { data: mine }, { data: hist }] = await Promise.all([
-      loc.status === "granted" && loc.coords
-        ? supabase.rpc("nearby_orders", { driver_lat: loc.coords.lat, driver_lng: loc.coords.lng })
+      c
+        ? supabase.rpc("nearby_orders", { driver_lat: c.lat, driver_lng: c.lng })
         : Promise.resolve({ data: [] as NearbyOrder[] }),
       supabase
         .from("orders")
@@ -104,23 +113,44 @@ function DriverDashboard() {
     setNearby((rpc as NearbyOrder[]) ?? []);
     setActive((mine?.[0] as Order) ?? null);
     setHistory((hist as Order[]) ?? []);
-  }, [user, loc]);
+  }, [user]);
 
   const prevNearbyIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    void loadOrders();
     if (!user) return;
+    void loadOrders();
     const ch = supabase
       .channel("driver-orders")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadOrders())
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+        void loadOrders();
+      })
       .subscribe();
-    const iv = setInterval(loadOrders, 15000);
+    // Poll as the source of truth — realtime can't see unassigned orders under RLS.
+    const iv = setInterval(() => {
+      void pushLocation();
+      void loadOrders();
+    }, 10000);
+    const onResume = () => {
+      if (document.visibilityState === "visible") {
+        void pushLocation();
+        void loadOrders();
+      }
+    };
+    document.addEventListener("visibilitychange", onResume);
     return () => {
       supabase.removeChannel(ch);
       clearInterval(iv);
+      document.removeEventListener("visibilitychange", onResume);
     };
-  }, [loadOrders, user]);
+  }, [loadOrders, pushLocation, user]);
+
+  // Refetch as soon as we have (or move) a fix.
+  useEffect(() => {
+    if (!locReady) return;
+    void loadOrders();
+  }, [locReady, locLat, locLng, loadOrders]);
+
 
   // Uber-style ping when a new order pops into your 3 km radius.
   useEffect(() => {
