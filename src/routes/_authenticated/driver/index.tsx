@@ -300,6 +300,55 @@ function DriverDashboard() {
         />
       </div>
 
+      {/* Alert radius */}
+      <div className="card-soft mb-6 flex flex-wrap items-center justify-between gap-3 p-5">
+        <div className="text-sm">
+          <p className="font-semibold">Alert radius</p>
+          <p className="text-xs text-muted-foreground">
+            Only shops within {driver.search_radius_km} km of you will alert you.
+          </p>
+        </div>
+        <div className="flex gap-1 rounded-full bg-muted p-1">
+          {[1, 2, 3].map((km) => (
+            <button
+              key={km}
+              type="button"
+              onClick={async () => {
+                const prev = driver.search_radius_km;
+                setDriver({ ...driver, search_radius_km: km });
+                const { error } = await supabase
+                  .from("drivers")
+                  .update({ search_radius_km: km })
+                  .eq("id", driver.id);
+                if (error) {
+                  setDriver({ ...driver, search_radius_km: prev });
+                  return toast.error(error.message);
+                }
+                toast.success(`Alerts limited to ${km} km`);
+                void loadOrders();
+              }}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                Number(driver.search_radius_km) === km
+                  ? "bg-card text-foreground shadow-soft"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {km} km
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-6 flex justify-end">
+        <Button
+          variant="outline"
+          className="rounded-full"
+          onClick={() => navigate({ to: "/driver/settings" })}
+        >
+          Edit profile
+        </Button>
+      </div>
+
       {/* Earnings */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat
