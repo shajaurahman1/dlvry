@@ -151,7 +151,6 @@ function DriverDashboard() {
     void loadOrders();
   }, [locReady, locLat, locLng, loadOrders]);
 
-
   // Uber-style ping when a new order pops into your 3 km radius.
   useEffect(() => {
     const currentIds = new Set(nearby.map((n) => n.id));
@@ -790,4 +789,3 @@ Thank you.`;
     </div>
   );
 }
-
