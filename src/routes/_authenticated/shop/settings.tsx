@@ -113,6 +113,101 @@ function ShopSettings() {
             required
           />
         </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <Label className="text-sm font-medium">Category</Label>
+            <Select
+              value={form.shop_category}
+              onValueChange={(v) => setForm({ ...form, shop_category: v })}
+            >
+              <SelectTrigger className="mt-1.5">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[
+                  "grocery",
+                  "pharmacy",
+                  "restaurant",
+                  "bakery",
+                  "stationery",
+                  "electronics",
+                  "other",
+                ].map((c) => (
+                  <SelectItem key={c} value={c} className="capitalize">
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-sm font-medium">Owner name</Label>
+            <Input
+              className="mt-1.5"
+              value={form.owner_name}
+              onChange={(e) => setForm({ ...form, owner_name: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">Shop phone</Label>
+            <Input
+              className="mt-1.5"
+              value={form.shop_phone}
+              onChange={(e) => setForm({ ...form, shop_phone: e.target.value })}
+              placeholder="+91…"
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">Your name</Label>
+            <Input
+              className="mt-1.5"
+              value={form.full_name}
+              onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">Contact phone</Label>
+            <Input
+              className="mt-1.5"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              placeholder="+91…"
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">WhatsApp</Label>
+            <Input
+              className="mt-1.5"
+              value={form.whatsapp}
+              onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+              placeholder="+91…"
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">GST number</Label>
+            <Input
+              className="mt-1.5"
+              value={form.gst_number}
+              onChange={(e) => setForm({ ...form, gst_number: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">PAN number</Label>
+            <Input
+              className="mt-1.5"
+              value={form.pan_number}
+              onChange={(e) => setForm({ ...form, pan_number: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">Licence number</Label>
+            <Input
+              className="mt-1.5"
+              value={form.licence_number}
+              onChange={(e) => setForm({ ...form, licence_number: e.target.value })}
+            />
+          </div>
+        </div>
         <div>
           <Label className="text-sm font-medium">Address</Label>
           <Textarea
