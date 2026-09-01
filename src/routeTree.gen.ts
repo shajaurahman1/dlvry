@@ -18,6 +18,7 @@ import { Route as AuthenticatedShopIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedDriverIndexRouteImport } from './routes/_authenticated/driver/index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as AuthenticatedShopSettingsRouteImport } from './routes/_authenticated/shop/settings'
+import { Route as AuthenticatedDriverSettingsRouteImport } from './routes/_authenticated/driver/settings'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -65,12 +66,19 @@ const AuthenticatedShopSettingsRoute =
     path: '/shop/settings',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDriverSettingsRoute =
+  AuthenticatedDriverSettingsRouteImport.update({
+    id: '/driver/settings',
+    path: '/driver/settings',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/terms': typeof TermsRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
+  '/driver/settings': typeof AuthenticatedDriverSettingsRoute
   '/shop/settings': typeof AuthenticatedShopSettingsRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/driver/': typeof AuthenticatedDriverIndexRoute
@@ -81,6 +89,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/terms': typeof TermsRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
+  '/driver/settings': typeof AuthenticatedDriverSettingsRoute
   '/shop/settings': typeof AuthenticatedShopSettingsRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/driver': typeof AuthenticatedDriverIndexRoute
@@ -93,6 +102,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/terms': typeof TermsRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
+  '/_authenticated/driver/settings': typeof AuthenticatedDriverSettingsRoute
   '/_authenticated/shop/settings': typeof AuthenticatedShopSettingsRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/driver/': typeof AuthenticatedDriverIndexRoute
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/terms'
     | '/onboarding'
+    | '/driver/settings'
     | '/shop/settings'
     | '/admin/'
     | '/driver/'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/terms'
     | '/onboarding'
+    | '/driver/settings'
     | '/shop/settings'
     | '/admin'
     | '/driver'
@@ -126,6 +138,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/terms'
     | '/_authenticated/onboarding'
+    | '/_authenticated/driver/settings'
     | '/_authenticated/shop/settings'
     | '/_authenticated/admin/'
     | '/_authenticated/driver/'
@@ -204,11 +217,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedShopSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/driver/settings': {
+      id: '/_authenticated/driver/settings'
+      path: '/driver/settings'
+      fullPath: '/driver/settings'
+      preLoaderRoute: typeof AuthenticatedDriverSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
+  AuthenticatedDriverSettingsRoute: typeof AuthenticatedDriverSettingsRoute
   AuthenticatedShopSettingsRoute: typeof AuthenticatedShopSettingsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedDriverIndexRoute: typeof AuthenticatedDriverIndexRoute
@@ -217,6 +238,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
+  AuthenticatedDriverSettingsRoute: AuthenticatedDriverSettingsRoute,
   AuthenticatedShopSettingsRoute: AuthenticatedShopSettingsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   AuthenticatedDriverIndexRoute: AuthenticatedDriverIndexRoute,

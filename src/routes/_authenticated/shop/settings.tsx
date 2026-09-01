@@ -24,39 +24,72 @@ function ShopSettings() {
   const navigate = useNavigate();
   const [shop, setShop] = useState<Shop | null>(null);
   const [coords, setCoords] = useState<PickedLocation | null>(null);
-  const [form, setForm] = useState({ shop_name: "", address: "" });
+  const [form, setForm] = useState({
+    shop_name: "",
+    address: "",
+    shop_category: "grocery",
+    owner_name: "",
+    shop_phone: "",
+    gst_number: "",
+    pan_number: "",
+    licence_number: "",
+    full_name: "",
+    phone: "",
+    whatsapp: "",
+  });
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    void supabase
-      .from("shopkeepers")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data) return;
-        setShop(data);
-        setForm({ shop_name: data.shop_name, address: data.address });
-        setCoords({ lat: data.latitude, lng: data.longitude });
+    void (async () => {
+      const [{ data }, { data: p }] = await Promise.all([
+        supabase.from("shopkeepers").select("*").eq("id", user.id).maybeSingle(),
+        supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+      ]);
+      if (!data) return;
+      setShop(data);
+      setForm({
+        shop_name: data.shop_name,
+        address: data.address,
+        shop_category: data.shop_category ?? "grocery",
+        owner_name: data.owner_name ?? "",
+        shop_phone: data.shop_phone ?? "",
+        gst_number: data.gst_number ?? "",
+        pan_number: data.pan_number ?? "",
+        licence_number: data.licence_number ?? "",
+        full_name: p?.full_name ?? "",
+        phone: p?.phone ?? "",
+        whatsapp: p?.whatsapp ?? "",
       });
+      setCoords({ lat: data.latitude, lng: data.longitude });
+    })();
   }, [user]);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!shop || !coords) return;
     setBusy(true);
+    const { error: pe } = await supabase
+      .from("profiles")
+      .update({ full_name: form.full_name, phone: form.phone, whatsapp: form.whatsapp })
+      .eq("id", shop.id);
     const { error } = await supabase
       .from("shopkeepers")
       .update({
         shop_name: form.shop_name,
         address: form.address,
+        shop_category: form.shop_category,
+        owner_name: form.owner_name || null,
+        shop_phone: form.shop_phone || null,
+        gst_number: form.gst_number || null,
+        pan_number: form.pan_number || null,
+        licence_number: form.licence_number || null,
         latitude: coords.lat,
         longitude: coords.lng,
       })
       .eq("id", shop.id);
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (pe || error) return toast.error((pe ?? error)!.message);
     toast.success("Shop updated");
     navigate({ to: "/shop" });
   };
