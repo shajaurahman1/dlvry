@@ -144,6 +144,7 @@ export type Database = {
           rating_avg: number
           rating_count: number
           rc_url: string | null
+          search_radius_km: number
           selfie_url: string | null
           updated_at: string
           vehicle_number: string | null
@@ -176,6 +177,7 @@ export type Database = {
           rating_avg?: number
           rating_count?: number
           rc_url?: string | null
+          search_radius_km?: number
           selfie_url?: string | null
           updated_at?: string
           vehicle_number?: string | null
@@ -208,6 +210,7 @@ export type Database = {
           rating_avg?: number
           rating_count?: number
           rc_url?: string | null
+          search_radius_km?: number
           selfie_url?: string | null
           updated_at?: string
           vehicle_number?: string | null
