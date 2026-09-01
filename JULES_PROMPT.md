@@ -11,9 +11,11 @@ web app wrapped with **Capacitor** for Android.
 **debug APK** and a **release AAB** as downloadable artifacts.
 
 ### Environment
+
 - Node.js 20, Java 21 (Temurin), Android SDK with `compileSdk 36`, `minSdk 24`.
 
 ### Steps
+
 1. Checkout the latest `main` branch.
 2. `npm ci`
 3. `npm run build` — this must complete with exit code 0 and emit static assets into
@@ -34,6 +36,7 @@ web app wrapped with **Capacitor** for Android.
    (`versionCode` / `versionName` in `android/app/build.gradle`).
 
 ### Verification checklist before finishing
+
 - `AndroidManifest.xml` declares `INTERNET`, `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`.
 - Capacitor plugins `@capacitor/app`, `@capacitor/geolocation`, `@capacitor/status-bar`
   appear in `android/app/capacitor.build.gradle` after sync.

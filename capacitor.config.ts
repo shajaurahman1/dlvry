@@ -1,9 +1,9 @@
-import type { CapacitorConfig } from '@capacitor/cli';
+import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: 'app.dlvry',
-  appName: 'dlvry',
-  webDir: '.output/public'
+  appId: "app.dlvry",
+  appName: "dlvry",
+  webDir: ".output/public",
 };
 
 export default config;

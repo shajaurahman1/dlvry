@@ -157,7 +157,10 @@ export async function getPositionOnce(opts: FixOptions = {}): Promise<FixResult>
         throw new LocationError("gps_disabled", "Turn on Location Services to continue.");
       }
       if (msg.includes("time")) {
-        throw new LocationError("timeout", "Couldn't get a GPS fix. Move to an open area and retry.");
+        throw new LocationError(
+          "timeout",
+          "Couldn't get a GPS fix. Move to an open area and retry.",
+        );
       }
       throw new LocationError("unavailable", "Location unavailable right now.");
     }
