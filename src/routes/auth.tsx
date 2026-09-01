@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { isNativeApp } from "@/lib/platform";
 import { lovable } from "@/integrations/lovable/index";
 import { z } from "zod";
 
@@ -151,14 +152,33 @@ function AuthPage() {
             onClick={async () => {
               setBusy(true);
               try {
-                const result = await lovable.auth.signInWithOAuth("google", {
-                  redirect_uri: window.location.origin,
-                });
-                if (result.error) {
-                  toast.error("Google sign-in failed. Please try again.");
-                  return;
+                if (isNativeApp()) {
+                  const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: "google",
+                    options: {
+                      redirectTo: "app.dlvry://callback",
+                      skipBrowserRedirect: true,
+                    },
+                  });
+                  if (error) {
+                    toast.error("Google sign-in failed. Please try again.");
+                    return;
+                  }
+                  if (data?.url) {
+                    const { Browser } = await import("@capacitor/browser");
+                    await Browser.open({ url: data.url });
+                    return;
+                  }
+                } else {
+                  const result = await lovable.auth.signInWithOAuth("google", {
+                    redirect_uri: window.location.origin,
+                  });
+                  if (result.error) {
+                    toast.error("Google sign-in failed. Please try again.");
+                    return;
+                  }
+                  if (result.redirected) return;
                 }
-                if (result.redirected) return;
               } catch {
                 toast.error("Google sign-in failed. Please try again.");
               } finally {
