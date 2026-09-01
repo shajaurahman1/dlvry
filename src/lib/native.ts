@@ -47,7 +47,29 @@ export function useNativeShell() {
             toast("Press back again to exit");
           }
         });
-        remove = () => void handle.remove();
+        remove = () => {
+          handle.remove();
+          urlHandle.remove();
+        };
+
+        const urlHandle = await App.addListener("appUrlOpen", async (event) => {
+          if (event.url.includes("callback")) {
+            try {
+              const { Browser } = await import("@capacitor/browser");
+              await Browser.close().catch(() => {});
+            } catch {
+              // ignore
+            }
+            const url = new URL(event.url);
+            // Navigate to auth so Supabase or logic picks it up
+            // Pass the hash and search correctly
+            router.navigate({
+              to: "/auth-callback",
+              hash: url.hash.replace(/^#/, ""),
+              search: Object.fromEntries(url.searchParams.entries()) as Record<string, unknown>,
+            });
+          }
+        });
       } catch {
         /* app plugin unavailable */
       }
