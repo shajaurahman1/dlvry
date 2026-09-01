@@ -408,7 +408,7 @@ function DriverDashboard() {
                 </p>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {driver.is_online
-                    ? "We only show orders within 3 km of your live location."
+                    ? `We only show orders within ${driver.search_radius_km} km of your live location.`
                     : "Go online to start receiving pickup requests near you."}
                 </p>
               </div>
