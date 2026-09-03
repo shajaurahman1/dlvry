@@ -48,7 +48,7 @@ function Onboarding() {
             className="card-soft group p-8 text-left transition hover:shadow-elevated"
           >
             <Store className="h-8 w-8 text-primary" strokeWidth={1.5} />
-            <h3 className="mt-6 text-xl font-bold">Shopkeeper</h3>
+            <h3 className="mt-6 text-xl font-bold">Business</h3>
             <p className="mt-2 text-sm text-muted-foreground">
               Take customer calls and dispatch orders to nearby delivery partners.
             </p>

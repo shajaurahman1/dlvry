@@ -1,10 +1,32 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { DlvryLogo } from "@/components/brand/logo";
 import { ArrowRight, PhoneCall, Package, MapPin } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { useEffect } from "react";
 
 export const Route = createFileRoute("/")({ component: Landing });
 
 function Landing() {
+  const { user, roles, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && user) {
+      if (roles.includes("admin")) navigate({ to: "/admin", replace: true });
+      else if (roles.includes("shopkeeper")) navigate({ to: "/shop", replace: true });
+      else if (roles.includes("driver")) navigate({ to: "/driver", replace: true });
+      else navigate({ to: "/onboarding", replace: true });
+    }
+  }, [user, roles, loading, navigate]);
+
+  if (loading || user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <DlvryLogo className="animate-pulse text-4xl" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
@@ -27,8 +49,7 @@ function Landing() {
             <span className="font-serif-italic font-normal text-primary">a phone call.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-base text-muted-foreground md:text-lg">
-            DLVRY connects neighborhood shops with nearby delivery partners. No customer app. No
-            payment gateway. Just a call, a driver, and a doorstep.
+            Collect payment with delivery charges at the doorstep.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
@@ -36,7 +57,7 @@ function Landing() {
               search={{ role: "shopkeeper" }}
               className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-90"
             >
-              I'm a shopkeeper <ArrowRight className="h-4 w-4" />
+              I'm a business <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               to="/auth"

@@ -24,6 +24,8 @@ function AuthCallbackPage() {
         return;
       }
 
+      const type = url.searchParams.get("type");
+
       if (code) {
         // Exchange code
         const { error } = await supabase.auth.exchangeCodeForSession(code);
@@ -31,7 +33,11 @@ function AuthCallbackPage() {
           toast.error(error.message);
           navigate({ to: "/auth", replace: true });
         } else {
-          navigate({ to: "/onboarding", replace: true });
+          if (type === "recovery") {
+            navigate({ to: "/auth", search: { mode: "reset" }, replace: true });
+          } else {
+            navigate({ to: "/onboarding", replace: true });
+          }
         }
       } else {
         // Fallback for implicit flow or already signed in
@@ -39,7 +45,11 @@ function AuthCallbackPage() {
           data: { session },
         } = await supabase.auth.getSession();
         if (session) {
-          navigate({ to: "/onboarding", replace: true });
+          if (type === "recovery" || url.hash.includes("type=recovery")) {
+            navigate({ to: "/auth", search: { mode: "reset" }, replace: true });
+          } else {
+            navigate({ to: "/onboarding", replace: true });
+          }
         } else {
           // If no session and no code, wait a bit in case it's processing
           setTimeout(() => {

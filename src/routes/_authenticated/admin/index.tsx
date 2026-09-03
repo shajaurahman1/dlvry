@@ -19,7 +19,7 @@ type Order = Tables<"orders">;
 function AdminDashboard() {
   const { roles, loading } = useAuth();
   const navigate = useNavigate();
-  const [shops, setShops] = useState<Shop[]>([]);
+  const [businesses, setBusinesses] = useState<Shop[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
 
@@ -37,7 +37,7 @@ function AdminDashboard() {
       supabase.from("drivers").select("*").order("created_at", { ascending: false }),
       supabase.from("orders").select("*").order("created_at", { ascending: false }).limit(50),
     ]);
-    setShops(s ?? []);
+    setBusinesses(s ?? []);
     setDrivers(d ?? []);
     setOrders(o ?? []);
   };
@@ -76,7 +76,7 @@ function AdminDashboard() {
     load();
   };
 
-  const pendingShops = shops.filter((s) => s.approval_status === "pending");
+  const pendingBusinesses = businesses.filter((s) => s.approval_status === "pending");
   const pendingDrivers = drivers.filter((d) => d.approval_status === "pending");
   const unverified = drivers.filter(
     (d) => d.verification_status === "pending" || d.verification_status === "resubmit",
@@ -85,7 +85,10 @@ function AdminDashboard() {
   return (
     <AppShell subtitle="Master Admin" title="Control room">
       <div className="mb-8 grid gap-3 md:grid-cols-4">
-        <Stat label="Shops" value={shops.filter((s) => s.approval_status === "approved").length} />
+        <Stat
+          label="Businesses"
+          value={businesses.filter((s) => s.approval_status === "approved").length}
+        />
         <Stat
           label="Drivers"
           value={drivers.filter((d) => d.approval_status === "approved").length}
@@ -93,7 +96,7 @@ function AdminDashboard() {
         <Stat label="Delivered" value={orders.filter((o) => o.status === "delivered").length} />
         <Stat
           label="Pending"
-          value={pendingShops.length + pendingDrivers.length + unverified.length}
+          value={pendingBusinesses.length + pendingDrivers.length + unverified.length}
           accent
         />
       </div>
@@ -106,8 +109,8 @@ function AdminDashboard() {
           <TabsTrigger value="verify" className="rounded-full">
             Verification
           </TabsTrigger>
-          <TabsTrigger value="shops" className="rounded-full">
-            Shops
+          <TabsTrigger value="businesses" className="rounded-full">
+            Businesses
           </TabsTrigger>
           <TabsTrigger value="drivers" className="rounded-full">
             Drivers
@@ -121,11 +124,11 @@ function AdminDashboard() {
         </TabsList>
 
         <TabsContent value="approvals" className="mt-6 space-y-6">
-          <Section title="Pending shops">
-            {pendingShops.length === 0 ? (
-              <Empty>No pending shops.</Empty>
+          <Section title="Pending businesses">
+            {pendingBusinesses.length === 0 ? (
+              <Empty>No pending businesses.</Empty>
             ) : (
-              pendingShops.map((s) => (
+              pendingBusinesses.map((s) => (
                 <Row key={s.id} title={s.shop_name} subtitle={`${s.shop_category} · ${s.address}`}>
                   <ApprovalActions
                     onApprove={() => setShopStatus(s.id, "approved")}
@@ -221,8 +224,8 @@ function AdminDashboard() {
           )}
         </TabsContent>
 
-        <TabsContent value="shops" className="mt-6 space-y-2">
-          {shops.map((s) => (
+        <TabsContent value="businesses" className="mt-6 space-y-2">
+          {businesses.map((s) => (
             <Row
               key={s.id}
               title={s.shop_name}

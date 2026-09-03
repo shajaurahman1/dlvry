@@ -435,7 +435,7 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!f.customer_name || !f.customer_phone || !f.customer_address || !f.order_description)
+    if (!f.customer_name || !f.customer_phone || !f.customer_address)
       return toast.error("Fill all required fields");
     setBusy(true);
     const { error } = await supabase.from("orders").insert({
@@ -508,7 +508,6 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
           rows={2}
           value={f.order_description}
           onChange={(e) => setF({ ...f, order_description: e.target.value })}
-          required
         />
       </FormField>
       <div className="grid gap-3 md:grid-cols-2">
