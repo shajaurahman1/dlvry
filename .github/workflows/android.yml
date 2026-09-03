@@ -39,6 +39,25 @@ jobs:
         working-directory: ./android
         run: ./gradlew assembleDebug
 
+      - name: Configure Android signing
+        working-directory: ./android
+        run: |
+          if [ -n "${{ secrets.PLAY_CONSOLE_KEYSTORE }}" ]; then
+            echo "Using keystore from secrets"
+            echo "${{ secrets.PLAY_CONSOLE_KEYSTORE }}" | base64 --decode > release.keystore
+            echo "storePassword=${{ secrets.PLAY_CONSOLE_KEYSTORE_PASSWORD }}" > keystore.properties
+            echo "keyPassword=${{ secrets.PLAY_CONSOLE_KEY_PASSWORD }}" >> keystore.properties
+            echo "keyAlias=${{ secrets.PLAY_CONSOLE_KEY_ALIAS }}" >> keystore.properties
+            echo "storeFile=../release.keystore" >> keystore.properties
+          else
+            echo "No keystore secret found, generating a temporary one for testing"
+            keytool -genkey -v -keystore release.keystore -alias release -keyalg RSA -keysize 2048 -validity 10000 -storepass password -keypass password -dname "CN=Unknown, OU=Unknown, O=Unknown, L=Unknown, ST=Unknown, C=Unknown"
+            echo "storePassword=password" > keystore.properties
+            echo "keyPassword=password" >> keystore.properties
+            echo "keyAlias=release" >> keystore.properties
+            echo "storeFile=../release.keystore" >> keystore.properties
+          fi
+
       - name: Build AAB (Release)
         working-directory: ./android
         run: ./gradlew bundleRelease
