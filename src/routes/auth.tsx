@@ -271,10 +271,20 @@ function AuthPage() {
             )}
             <Button
               type="submit"
-              disabled={busy || (tab === "signup" && !acceptTerms)}
+              disabled={
+                busy ||
+                (tab === "signup" && !acceptTerms) ||
+                (tab === "reset" && password !== confirmPassword)
+              }
               className="h-11 w-full rounded-full text-sm font-semibold"
             >
-              {busy ? "Please wait…" : tab === "signin" ? "Sign in" : "Create account"}
+              {busy
+                ? "Please wait…"
+                : tab === "signin"
+                  ? "Sign in"
+                  : tab === "reset"
+                    ? "Update Password"
+                    : "Create account"}
             </Button>
             {tab === "signin" && (
               <button

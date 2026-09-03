@@ -1,7 +1,5 @@
 export function MadeByFooter() {
   return (
-    <p className="pointer-events-none fixed inset-x-0 bottom-2 z-30 text-center text-[11px] text-muted-foreground/80">
-      Made by <span className="font-medium text-muted-foreground">Shajau Rahman</span>
-    </p>
+    <p className="pointer-events-none fixed inset-x-0 bottom-2 z-30 text-center text-[11px] text-muted-foreground/80"></p>
   );
 }
