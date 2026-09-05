@@ -32,3 +32,4 @@ dist-ssr
 *.sw?
 *.jks
 keystore.properties
+*.keystore
