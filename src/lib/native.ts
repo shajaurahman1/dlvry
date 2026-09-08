@@ -53,7 +53,11 @@ export function useNativeShell() {
         };
 
         const urlHandle = await App.addListener("appUrlOpen", async (event) => {
-          if (event.url.includes("callback")) {
+          if (
+            event.url.includes("callback") ||
+            event.url.includes("type=recovery") ||
+            event.url.includes("dlvry.lovable.app")
+          ) {
             try {
               const { Browser } = await import("@capacitor/browser");
               await Browser.close().catch(() => {});
@@ -61,12 +65,18 @@ export function useNativeShell() {
               // ignore
             }
             const url = new URL(event.url);
-            // Navigate to auth so Supabase or logic picks it up
-            // Pass the hash and search correctly
+
+            // If it's a direct deep link to the lovable app domain, it's likely a recovery link
+            // Adjust the URL so the router correctly processes the hash/search parameters
+            const isRecovery = event.url.includes("type=recovery");
+
             router.navigate({
               to: "/auth-callback",
               hash: url.hash.replace(/^#/, ""),
-              search: Object.fromEntries(url.searchParams.entries()) as Record<string, unknown>,
+              search: {
+                ...Object.fromEntries(url.searchParams.entries()),
+                ...(isRecovery ? { type: "recovery" } : {}),
+              } as Record<string, unknown>,
             });
           }
         });
