@@ -25,9 +25,11 @@ function AuthCallbackPage() {
       }
 
       const type = url.searchParams.get("type");
+      const isNative = typeof window !== 'undefined' && window.Capacitor?.isNative;
 
-      if (code) {
-        // Exchange code
+      if (code && isNative) {
+        // On native, we must exchange the code manually because the deep link
+        // doesn't trigger Supabase's automatic on-load processing
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
           toast.error(error.message);
@@ -40,10 +42,19 @@ function AuthCallbackPage() {
           }
         }
       } else {
-        // Fallback for implicit flow or already signed in
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        // For web (or implicit flows on native), wait for Supabase to automatically
+        // exchange the code or pick up the session from the URL hash.
+        // We poll briefly to wait for the session to become available.
+        let session = null;
+        for (let i = 0; i < 20; i++) {
+          const { data } = await supabase.auth.getSession();
+          if (data.session) {
+            session = data.session;
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 100)); // wait 100ms
+        }
+
         if (session) {
           if (type === "recovery" || url.hash.includes("type=recovery")) {
             navigate({ to: "/auth", search: { mode: "reset" }, replace: true });
@@ -51,10 +62,9 @@ function AuthCallbackPage() {
             navigate({ to: "/onboarding", replace: true });
           }
         } else {
-          // If no session and no code, wait a bit in case it's processing
-          setTimeout(() => {
-            navigate({ to: "/auth", replace: true });
-          }, 2000);
+          // If no session and no code processed, go back to auth
+          toast.error("Sign in failed. Please try again.");
+          navigate({ to: "/auth", replace: true });
         }
       }
     };

@@ -215,34 +215,29 @@ function AuthPage() {
               onClick={async () => {
                 setBusy(true);
                 try {
-                  if (isNativeApp()) {
-                    const { data, error } = await supabase.auth.signInWithOAuth({
-                      provider: "google",
-                      options: {
-                        redirectTo: "in.dlvry.app://callback",
-                        skipBrowserRedirect: true,
-                      },
-                    });
-                    if (error) {
-                      toast.error("Google sign-in failed. Please try again.");
-                      return;
-                    }
-                    if (data?.url) {
-                      const { Browser } = await import("@capacitor/browser");
-                      await Browser.open({ url: data.url });
-                      return;
-                    }
-                  } else {
-                    const result = await lovable.auth.signInWithOAuth("google", {
-                      redirect_uri: window.location.origin,
-                    });
-                    if (result.error) {
-                      toast.error("Google sign-in failed. Please try again.");
-                      return;
-                    }
-                    if (result.redirected) return;
+                  const redirectTo = isNativeApp()
+                    ? "in.dlvry.app://callback"
+                    : `${window.location.origin}/auth-callback`;
+
+                  const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: "google",
+                    options: {
+                      redirectTo,
+                      skipBrowserRedirect: isNativeApp(),
+                    },
+                  });
+
+                  if (error) {
+                    toast.error("Google sign-in failed. Please try again.");
+                    return;
                   }
-                } catch {
+
+                  if (isNativeApp() && data?.url) {
+                    const { Browser } = await import("@capacitor/browser");
+                    await Browser.open({ url: data.url });
+                    return;
+                  }
+                } catch (err) {
                   toast.error("Google sign-in failed. Please try again.");
                 } finally {
                   setBusy(false);
