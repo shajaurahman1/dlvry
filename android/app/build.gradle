@@ -7,7 +7,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "app.dlvry"
+    namespace = "in.dlvry.app"
     compileSdk = rootProject.ext.compileSdkVersion
 
     signingConfigs {
@@ -22,11 +22,11 @@ android {
     }
 
     defaultConfig {
-        applicationId "app.dlvry"
+        applicationId "in.dlvry.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.1.0"
+        versionCode 1
+        versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

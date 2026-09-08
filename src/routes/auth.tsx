@@ -156,7 +156,7 @@ function AuthPage() {
                   const { data, error } = await supabase.auth.signInWithOAuth({
                     provider: "google",
                     options: {
-                      redirectTo: "app.dlvry://callback",
+                      redirectTo: "in.dlvry.app://callback",
                       skipBrowserRedirect: true,
                     },
                   });

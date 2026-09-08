@@ -218,8 +218,6 @@ export function useLiveLocation(watch = true): LocationState {
   useEffect(() => {
     let cancelled = false;
     let clearWatch: (() => void) | undefined;
-    let poll: ReturnType<typeof setInterval> | undefined;
-    let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
     const accept = (fix: FixResult, fromCache = false) => {
       if (cancelled) return;
@@ -314,14 +312,14 @@ export function useLiveLocation(watch = true): LocationState {
     }
 
     // 4. Background refresh so transient failures self-heal.
-    poll = setInterval(() => {
+    const pollTimer = setInterval(() => {
       void getPositionOnce({ highAccuracy: true, timeout: 15_000, maximumAge: 10_000 })
         .then((f) => accept(f))
         .catch(() => undefined);
     }, 15_000);
 
     // 5. Hard stop on the spinner.
-    searchTimer = setTimeout(() => {
+    const searchTimerRef = setTimeout(() => {
       if (!gotFixRef.current && !cancelled) {
         setStatus((p) => (p === "loading" ? "searching" : p));
       }
@@ -330,8 +328,8 @@ export function useLiveLocation(watch = true): LocationState {
     return () => {
       cancelled = true;
       clearWatch?.();
-      if (poll) clearInterval(poll);
-      if (searchTimer) clearTimeout(searchTimer);
+      if (pollTimer) clearInterval(pollTimer);
+      if (searchTimerRef) clearTimeout(searchTimerRef);
     };
   }, [watch, tick]);
 
