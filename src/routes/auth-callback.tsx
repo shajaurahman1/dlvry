@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { isNativeApp } from "@/lib/platform";
+
 
 export const Route = createFileRoute("/auth-callback")({
   component: AuthCallbackPage,
