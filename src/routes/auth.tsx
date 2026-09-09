@@ -48,7 +48,7 @@ function AuthPage() {
   const navigate = useNavigate();
   const { user, roles, loading } = useAuth();
   const [tab, setTab] = useState<"signin" | "signup" | "reset" | "forgot">(
-    (mode as string) ?? "signin",
+    mode ?? "signin",
   );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

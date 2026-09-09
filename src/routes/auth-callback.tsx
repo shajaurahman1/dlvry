@@ -25,7 +25,7 @@ function AuthCallbackPage() {
       }
 
       const type = url.searchParams.get("type");
-      const isNative = typeof window !== 'undefined' && window.Capacitor?.isNative;
+      const isNative = isNativeApp();
 
       if (code && isNative) {
         // On native, we must exchange the code manually because the deep link
