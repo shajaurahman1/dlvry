@@ -7,13 +7,14 @@
       "dependencies": {
         "@capacitor/android": "^6.2.1",
         "@capacitor/app": "^6.0.3",
+        "@capacitor/browser": "^6.0.3",
         "@capacitor/core": "^6.2.1",
         "@capacitor/geolocation": "^6.1.1",
         "@capacitor/status-bar": "^6.0.3",
         "@fontsource/cormorant-garamond": "^5.2.11",
         "@fontsource/inter": "^5.2.8",
         "@hookform/resolvers": "^5.2.2",
-        "@lovable.dev/cloud-auth-js": "^1.0.0",
+        "@lovable.dev/cloud-auth-js": "^1.1.2",
         "@radix-ui/react-accordion": "^1.2.12",
         "@radix-ui/react-alert-dialog": "^1.1.15",
         "@radix-ui/react-aspect-ratio": "^1.1.8",
@@ -136,6 +137,8 @@
     "@capacitor/android": ["@capacitor/android@6.2.1", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/android/-/android-6.2.1.tgz", { "peerDependencies": { "@capacitor/core": "^6.2.0" } }, "sha512-8gd4CIiQO5LAIlPIfd5mCuodBRxMMdZZEdj8qG8m+dQ1sQ2xyemVpzHmRK8qSCHorsBUCg3D62j2cp6bEBAkdw=="],
 
     "@capacitor/app": ["@capacitor/app@6.0.3", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/app/-/app-6.0.3.tgz", { "peerDependencies": { "@capacitor/core": "^6.0.0" } }, "sha512-4gFUCbcVz0N/YYN32OBFerocWXslIv3Nc90gDiRsBkJc0plwK6kIUT6PKa5WtW2kfhteUeCVXQbvArH2fH+0Ug=="],
+
+    "@capacitor/browser": ["@capacitor/browser@6.0.6", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/browser/-/browser-6.0.6.tgz", { "peerDependencies": { "@capacitor/core": "^6.0.0" } }, "sha512-VHOPkMR+JqKz2mf5YncnnOWvFdVYFTTLnPW+JRcsP1LobXmA0gtchER35PQ7XXqXU16eeacrehX+XF+rC6wmQw=="],
 
     "@capacitor/cli": ["@capacitor/cli@6.2.1", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/cli/-/cli-6.2.1.tgz", { "dependencies": { "@ionic/cli-framework-output": "^2.2.5", "@ionic/utils-fs": "^3.1.6", "@ionic/utils-subprocess": "2.1.11", "@ionic/utils-terminal": "^2.3.3", "commander": "^9.3.0", "debug": "^4.3.4", "env-paths": "^2.2.0", "kleur": "^4.1.4", "native-run": "^2.0.0", "open": "^8.4.0", "plist": "^3.0.5", "prompts": "^2.4.2", "rimraf": "^4.4.1", "semver": "^7.3.7", "tar": "^6.1.11", "tslib": "^2.4.0", "xml2js": "^0.5.0" }, "bin": { "cap": "bin/capacitor", "capacitor": "bin/capacitor" } }, "sha512-JKl0FpFge8PgQNInw12kcKieQ4BmOyazQ4JGJOfEpVXlgrX1yPhSZTPjngupzTCiK3I7q7iGG5kjun0fDqgSCA=="],
 
