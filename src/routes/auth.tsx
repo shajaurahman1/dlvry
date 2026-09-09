@@ -257,7 +257,8 @@ function AuthPage() {
                     return;
                   }
                   if (result.redirected) return;
-                  navigate({ to: "/onboarding" });
+                  // signed in — the redirect effect above routes the user
+
                 } catch {
                   toast.error("Google sign-in failed. Please try again.");
                 } finally {
