@@ -76,15 +76,15 @@ function AuthPage() {
     }
     setBusy(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(em, {
-        redirectTo: isNativeApp()
-          ? "in.dlvry.app://callback?type=recovery"
-          : `${window.location.origin}/auth-callback?type=recovery`,
-      });
+      const { error } = await supabase.auth.resetPasswordForEmail(em);
       if (error) throw error;
-      toast.success("Password reset link sent. Check your Gmail inbox.");
+      toast.success("We emailed you a 6-digit code. Enter it below.");
+      setResetCode("");
+      setPassword("");
+      setConfirmPassword("");
+      setTab("reset");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Couldn't send the reset link.");
+      toast.error(err instanceof Error ? err.message : "Couldn't send the code.");
     } finally {
       setBusy(false);
     }
@@ -101,14 +101,28 @@ function AuthPage() {
         toast.error("Passwords do not match.");
         return;
       }
+      if (password.length < 6) {
+        toast.error("Password must be at least 6 characters.");
+        return;
+      }
       setBusy(true);
       try {
+        const code = resetCode.trim();
+        if (code) {
+          const { error: vErr } = await supabase.auth.verifyOtp({
+            email: email.trim().toLowerCase(),
+            token: code,
+            type: "recovery",
+          });
+          if (vErr) throw new Error("That code is invalid or expired. Request a new one.");
+        }
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;
-        toast.success("Password updated successfully.");
+        toast.success("Password updated. You're signed in.");
         setTab("signin");
         setPassword("");
         setConfirmPassword("");
+        setResetCode("");
       } catch (err: unknown) {
         toast.error(err instanceof Error ? err.message : "Couldn't update password.");
       } finally {
@@ -116,6 +130,7 @@ function AuthPage() {
       }
       return;
     }
+
     // Continue with existing signin/signup logic
     e.preventDefault();
     // Continue with existing signin/signup logic
