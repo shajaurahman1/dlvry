@@ -233,34 +233,38 @@ function AuthPage() {
               onClick={async () => {
                 setBusy(true);
                 try {
-                  const redirectTo = isNativeApp()
-                    ? "in.dlvry.app://callback"
-                    : `${window.location.origin}/auth-callback`;
+                  if (isNativeApp()) {
+                    const { data, error } = await supabase.auth.signInWithOAuth({
+                      provider: "google",
+                      options: {
+                        redirectTo: "in.dlvry.app://callback",
+                        skipBrowserRedirect: true,
+                      },
+                    });
+                    if (error) throw error;
+                    if (data?.url) {
+                      const { Browser } = await import("@capacitor/browser");
+                      await Browser.open({ url: data.url });
+                    }
+                    return;
+                  }
 
-                  const { data, error } = await supabase.auth.signInWithOAuth({
-                    provider: "google",
-                    options: {
-                      redirectTo,
-                      skipBrowserRedirect: isNativeApp(),
-                    },
+                  const result = await lovable.auth.signInWithOAuth("google", {
+                    redirect_uri: window.location.origin,
                   });
-
-                  if (error) {
+                  if (result.error) {
                     toast.error("Google sign-in failed. Please try again.");
                     return;
                   }
-
-                  if (isNativeApp() && data?.url) {
-                    const { Browser } = await import("@capacitor/browser");
-                    await Browser.open({ url: data.url });
-                    return;
-                  }
-                } catch (err) {
+                  if (result.redirected) return;
+                  navigate({ to: "/onboarding" });
+                } catch {
                   toast.error("Google sign-in failed. Please try again.");
                 } finally {
                   setBusy(false);
                 }
               }}
+
               className="mb-4 flex h-11 w-full items-center justify-center gap-2.5 rounded-full border border-border bg-card text-sm font-semibold transition hover:bg-muted disabled:opacity-60"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
