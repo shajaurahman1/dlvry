@@ -48,14 +48,16 @@ function AuthPage() {
   const navigate = useNavigate();
   const { user, roles, loading } = useAuth();
   const [tab, setTab] = useState<"signin" | "signup" | "reset" | "forgot">(
-    (mode as string) ?? "signin",
+    mode ?? "signin",
   );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetCode, setResetCode] = useState("");
   const [fullName, setFullName] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [busy, setBusy] = useState(false);
+
 
   useEffect(() => {
     if (!loading && user) {
@@ -74,15 +76,15 @@ function AuthPage() {
     }
     setBusy(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(em, {
-        redirectTo: isNativeApp()
-          ? "in.dlvry.app://callback?type=recovery"
-          : `${window.location.origin}/auth-callback?type=recovery`,
-      });
+      const { error } = await supabase.auth.resetPasswordForEmail(em);
       if (error) throw error;
-      toast.success("Password reset link sent. Check your Gmail inbox.");
+      toast.success("We emailed you a 6-digit code. Enter it below.");
+      setResetCode("");
+      setPassword("");
+      setConfirmPassword("");
+      setTab("reset");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Couldn't send the reset link.");
+      toast.error(err instanceof Error ? err.message : "Couldn't send the code.");
     } finally {
       setBusy(false);
     }
@@ -99,14 +101,28 @@ function AuthPage() {
         toast.error("Passwords do not match.");
         return;
       }
+      if (password.length < 6) {
+        toast.error("Password must be at least 6 characters.");
+        return;
+      }
       setBusy(true);
       try {
+        const code = resetCode.trim();
+        if (code) {
+          const { error: vErr } = await supabase.auth.verifyOtp({
+            email: email.trim().toLowerCase(),
+            token: code,
+            type: "recovery",
+          });
+          if (vErr) throw new Error("That code is invalid or expired. Request a new one.");
+        }
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;
-        toast.success("Password updated successfully.");
+        toast.success("Password updated. You're signed in.");
         setTab("signin");
         setPassword("");
         setConfirmPassword("");
+        setResetCode("");
       } catch (err: unknown) {
         toast.error(err instanceof Error ? err.message : "Couldn't update password.");
       } finally {
@@ -114,6 +130,7 @@ function AuthPage() {
       }
       return;
     }
+
     // Continue with existing signin/signup logic
     e.preventDefault();
     // Continue with existing signin/signup logic
@@ -188,7 +205,7 @@ function AuthPage() {
             <div className="mb-6 rounded-lg bg-accent px-3 py-4 text-center">
               <h3 className="text-base font-semibold text-foreground">Reset Password</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Enter your email to receive a recovery link.
+                Enter your email and we'll send you a 6-digit code.
               </p>
             </div>
           )}
@@ -197,8 +214,9 @@ function AuthPage() {
             <div className="mb-6 rounded-lg bg-accent px-3 py-4 text-center">
               <h3 className="text-base font-semibold text-foreground">Set New Password</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Please enter your new password below.
+                Enter the code from your email and choose a new password.
               </p>
+
             </div>
           )}
 
@@ -215,34 +233,39 @@ function AuthPage() {
               onClick={async () => {
                 setBusy(true);
                 try {
-                  const redirectTo = isNativeApp()
-                    ? "in.dlvry.app://callback"
-                    : `${window.location.origin}/auth-callback`;
+                  if (isNativeApp()) {
+                    const { data, error } = await supabase.auth.signInWithOAuth({
+                      provider: "google",
+                      options: {
+                        redirectTo: "in.dlvry.app://callback",
+                        skipBrowserRedirect: true,
+                      },
+                    });
+                    if (error) throw error;
+                    if (data?.url) {
+                      const { Browser } = await import("@capacitor/browser");
+                      await Browser.open({ url: data.url });
+                    }
+                    return;
+                  }
 
-                  const { data, error } = await supabase.auth.signInWithOAuth({
-                    provider: "google",
-                    options: {
-                      redirectTo,
-                      skipBrowserRedirect: isNativeApp(),
-                    },
+                  const result = await lovable.auth.signInWithOAuth("google", {
+                    redirect_uri: window.location.origin,
                   });
-
-                  if (error) {
+                  if (result.error) {
                     toast.error("Google sign-in failed. Please try again.");
                     return;
                   }
+                  if (result.redirected) return;
+                  // signed in — the redirect effect above routes the user
 
-                  if (isNativeApp() && data?.url) {
-                    const { Browser } = await import("@capacitor/browser");
-                    await Browser.open({ url: data.url });
-                    return;
-                  }
-                } catch (err) {
+                } catch {
                   toast.error("Google sign-in failed. Please try again.");
                 } finally {
                   setBusy(false);
                 }
               }}
+
               className="mb-4 flex h-11 w-full items-center justify-center gap-2.5 rounded-full border border-border bg-card text-sm font-semibold transition hover:bg-muted disabled:opacity-60"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
@@ -287,20 +310,33 @@ function AuthPage() {
                 />
               </div>
             )}
-            {tab !== "reset" && (
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@gmail.com"
+                className="mt-1.5"
+                required
+              />
+            </div>
+            {tab === "reset" && (
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="code">6-digit code</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="mt-1.5"
-                  required
+                  id="code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={resetCode}
+                  onChange={(e) => setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="123456"
+                  className="mt-1.5 tracking-[0.4em]"
                 />
               </div>
             )}
+
             {tab !== "forgot" && (
               <div>
                 <Label htmlFor="pw">{tab === "reset" ? "New Password" : "Password"}</Label>

@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { isNativeApp } from "@/lib/platform";
+
 
 export const Route = createFileRoute("/auth-callback")({
   component: AuthCallbackPage,
@@ -25,7 +27,7 @@ function AuthCallbackPage() {
       }
 
       const type = url.searchParams.get("type");
-      const isNative = typeof window !== 'undefined' && window.Capacitor?.isNative;
+      const isNative = isNativeApp();
 
       if (code && isNative) {
         // On native, we must exchange the code manually because the deep link
