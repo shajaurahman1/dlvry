@@ -205,7 +205,7 @@ function AuthPage() {
             <div className="mb-6 rounded-lg bg-accent px-3 py-4 text-center">
               <h3 className="text-base font-semibold text-foreground">Reset Password</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Enter your email to receive a recovery link.
+                Enter your email and we'll send you a 6-digit code.
               </p>
             </div>
           )}
@@ -214,8 +214,9 @@ function AuthPage() {
             <div className="mb-6 rounded-lg bg-accent px-3 py-4 text-center">
               <h3 className="text-base font-semibold text-foreground">Set New Password</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Please enter your new password below.
+                Enter the code from your email and choose a new password.
               </p>
+
             </div>
           )}
 
@@ -304,20 +305,33 @@ function AuthPage() {
                 />
               </div>
             )}
-            {tab !== "reset" && (
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@gmail.com"
+                className="mt-1.5"
+                required
+              />
+            </div>
+            {tab === "reset" && (
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="code">6-digit code</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="mt-1.5"
-                  required
+                  id="code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={resetCode}
+                  onChange={(e) => setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="123456"
+                  className="mt-1.5 tracking-[0.4em]"
                 />
               </div>
             )}
+
             {tab !== "forgot" && (
               <div>
                 <Label htmlFor="pw">{tab === "reset" ? "New Password" : "Password"}</Label>
