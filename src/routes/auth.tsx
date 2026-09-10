@@ -76,9 +76,13 @@ function AuthPage() {
     }
     setBusy(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(em);
+      const { error } = await supabase.auth.resetPasswordForEmail(em, {
+        redirectTo: isNativeApp()
+          ? "in.dlvry.app://callback?type=recovery"
+          : `${window.location.origin}/auth-callback?type=recovery`,
+      });
       if (error) throw error;
-      toast.success("We emailed you a 6-digit code. Enter it below.");
+      toast.success("Check your email and tap the button — it opens DLVRY.");
       setResetCode("");
       setPassword("");
       setConfirmPassword("");
