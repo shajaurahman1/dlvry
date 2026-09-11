@@ -47,7 +47,9 @@ function AuthPage() {
   const { role, mode } = Route.useSearch();
   const navigate = useNavigate();
   const { user, roles, loading } = useAuth();
-  const [tab, setTab] = useState<"signin" | "signup" | "reset" | "forgot">(mode ?? "signin");
+  const [tab, setTab] = useState<"signin" | "signup" | "reset" | "forgot">(
+    mode ?? "signin",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -55,6 +57,7 @@ function AuthPage() {
   const [fullName, setFullName] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [busy, setBusy] = useState(false);
+
 
   useEffect(() => {
     if (!loading && user) {
@@ -217,6 +220,7 @@ function AuthPage() {
               <p className="mt-1 text-xs text-muted-foreground">
                 Enter the code from your email and choose a new password.
               </p>
+
             </div>
           )}
 
@@ -258,6 +262,7 @@ function AuthPage() {
                   }
                   if (result.redirected) return;
                   // signed in — the redirect effect above routes the user
+
                 } catch {
                   toast.error("Google sign-in failed. Please try again.");
                 } finally {
