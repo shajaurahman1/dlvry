@@ -27,11 +27,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const applySession = async (s: Session | null) => {
-    setSession(s);
-    setUser(s?.user ?? null);
     if (s?.user) {
-      setTimeout(async () => setRoles(await fetchRoles(s.user.id)), 0);
+      const fetchedRoles = await fetchRoles(s.user.id);
+      setSession(s);
+      setUser(s.user);
+      setRoles(fetchedRoles);
     } else {
+      setSession(null);
+      setUser(null);
       setRoles([]);
     }
   };
