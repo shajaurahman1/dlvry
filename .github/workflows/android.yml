@@ -21,7 +21,7 @@ jobs:
           node-version: "20"
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: "21"
@@ -30,6 +30,10 @@ jobs:
         run: npm ci
 
       - name: Build web app
+        env:
+          VITE_SUPABASE_PROJECT_ID: "uzccsguniafwnedlpsmg"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6Y2NzZ3VuaWFmd25lZGxwc21nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMDQzOTQsImV4cCI6MjA5ODU4MDM5NH0.twtoMlF7yHo2af3NCwdyRJTSj2MN_3vhfJ29TGSbjCk"
+          VITE_SUPABASE_URL: "https://c--db2a9864-11eb-49a0-8d48-e654e736409e-prod.lovable.cloud"
         run: npm run build
 
       - name: Sync Capacitor
