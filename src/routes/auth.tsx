@@ -51,7 +51,6 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [resetCode, setResetCode] = useState("");
   const [fullName, setFullName] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -73,15 +72,15 @@ function AuthPage() {
     }
     setBusy(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(em);
+      const { error } = await supabase.auth.resetPasswordForEmail(em, {
+        redirectTo: isNativeApp()
+          ? "in.dlvry.app://callback?type=recovery"
+          : `${window.location.origin}/auth-callback?type=recovery`,
+      });
       if (error) throw error;
-      toast.success("We sent a 6-digit code to your email.");
-      setResetCode("");
-      setPassword("");
-      setConfirmPassword("");
-      setTab("reset");
+      toast.success("We sent a reset link to your email. Open it on this device.");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Couldn't send the code.");
+      toast.error(err instanceof Error ? err.message : "Couldn't send the reset link.");
     } finally {
       setBusy(false);
     }
@@ -130,11 +129,6 @@ function AuthPage() {
       return;
     }
     if (tab === "reset") {
-      const code = resetCode.trim();
-      if (!/^\d{6}$/.test(code)) {
-        toast.error("Enter the 6-digit code from your email.");
-        return;
-      }
       if (password !== confirmPassword) {
         toast.error("Passwords do not match.");
         return;
@@ -145,19 +139,16 @@ function AuthPage() {
       }
       setBusy(true);
       try {
-        const { error: vErr } = await supabase.auth.verifyOtp({
-          email: email.trim().toLowerCase(),
-          token: code,
-          type: "recovery",
-        });
-        if (vErr) throw new Error("That code is invalid or expired. Request a new one.");
+        // Reaching this screen already required tapping the emailed reset
+        // link, which established a recovery session (see auth-callback.tsx)
+        // — Supabase verified that server-side, so this is just applying the
+        // new password to the already-authenticated recovery session.
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;
         toast.success("Password updated. You're signed in.");
         setTab("signin");
         setPassword("");
         setConfirmPassword("");
-        setResetCode("");
       } catch (err: unknown) {
         toast.error(err instanceof Error ? err.message : "Couldn't update password.");
       } finally {
@@ -240,7 +231,7 @@ function AuthPage() {
             <div className="mb-6 rounded-lg bg-accent px-3 py-4 text-center">
               <h3 className="text-base font-semibold text-foreground">Reset Password</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Enter your email and we'll send you a 6-digit code.
+                Enter your email and we'll send you a link to reset your password.
               </p>
             </div>
           )}
@@ -248,9 +239,7 @@ function AuthPage() {
           {tab === "reset" && (
             <div className="mb-6 rounded-lg bg-accent px-3 py-4 text-center">
               <h3 className="text-base font-semibold text-foreground">Set New Password</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Enter the code from your email and choose a new password.
-              </p>
+              <p className="mt-1 text-xs text-muted-foreground">Choose a new password.</p>
             </div>
           )}
 
@@ -309,34 +298,20 @@ function AuthPage() {
                 />
               </div>
             )}
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@gmail.com"
-                className="mt-1.5"
-                required
-              />
-            </div>
-            {tab === "reset" && (
+            {tab !== "reset" && (
               <div>
-                <Label htmlFor="code">6-digit code</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="code"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={resetCode}
-                  onChange={(e) => setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="123456"
-                  className="mt-1.5 tracking-[0.4em]"
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@gmail.com"
+                  className="mt-1.5"
                   required
                 />
               </div>
             )}
-
             {tab !== "forgot" && (
               <div>
                 <Label htmlFor="pw">{tab === "reset" ? "New Password" : "Password"}</Label>
@@ -399,7 +374,7 @@ function AuthPage() {
                 : tab === "signin"
                   ? "Sign in"
                   : tab === "forgot"
-                    ? "Send Code"
+                    ? "Send Reset Link"
                     : tab === "reset"
                       ? "Update Password"
                       : "Create account"}
