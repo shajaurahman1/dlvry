@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { DlvryLogo } from "@/components/brand/logo";
@@ -15,6 +15,12 @@ type SearchParams = {
 };
 
 export const Route = createFileRoute("/auth")({
+  // TEMPORARY: login is bypassed app-wide, so this screen is unreachable —
+  // bounce straight to "/" instead of ever rendering a login form. Restore
+  // authentication by deleting this beforeLoad.
+  beforeLoad: () => {
+    throw redirect({ to: "/" });
+  },
   validateSearch: (s: Record<string, unknown>): SearchParams => ({
     role: s.role === "shopkeeper" || s.role === "driver" || s.role === "admin" ? s.role : undefined,
     mode:
