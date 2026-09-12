@@ -46,18 +46,6 @@ jobs:
         working-directory: ./android
         run: ./gradlew assembleDebug
 
-      - name: TEMP - verify no Google sign-in text in built APK
-        working-directory: ./android
-        run: |
-          rm -rf /tmp/apk-check
-          unzip -o app/build/outputs/apk/debug/app-debug.apk -d /tmp/apk-check >/dev/null
-          echo "--- grepping unpacked APK for 'Continue with Google' ---"
-          if grep -R -l "Continue with Google" /tmp/apk-check; then
-            echo "RESULT: FOUND - the old Google sign-in text is still packaged in this APK"
-          else
-            echo "RESULT: NOT FOUND - 'Continue with Google' does not appear anywhere in this APK"
-          fi
-
       - name: Configure Android signing
         working-directory: ./android
         run: |
