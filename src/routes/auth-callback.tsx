@@ -1,9 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isNativeApp } from "@/lib/platform";
-
 
 export const Route = createFileRoute("/auth-callback")({
   component: AuthCallbackPage,
@@ -11,8 +10,12 @@ export const Route = createFileRoute("/auth-callback")({
 
 function AuthCallbackPage() {
   const navigate = useNavigate();
+  const processed = useRef(false);
 
   useEffect(() => {
+    if (processed.current) return;
+    processed.current = true;
+
     const processAuth = async () => {
       const url = new URL(window.location.href);
       const code = url.searchParams.get("code");
@@ -40,7 +43,7 @@ function AuthCallbackPage() {
           if (type === "recovery") {
             navigate({ to: "/auth", search: { mode: "reset" }, replace: true });
           } else {
-            navigate({ to: "/onboarding", replace: true });
+            navigate({ to: "/", replace: true });
           }
         }
       } else {
@@ -61,7 +64,7 @@ function AuthCallbackPage() {
           if (type === "recovery" || url.hash.includes("type=recovery")) {
             navigate({ to: "/auth", search: { mode: "reset" }, replace: true });
           } else {
-            navigate({ to: "/onboarding", replace: true });
+            navigate({ to: "/", replace: true });
           }
         } else {
           // If no session and no code processed, go back to auth
