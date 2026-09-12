@@ -32,6 +32,11 @@ function AuthCallbackPage() {
       const type = url.searchParams.get("type");
       const isNative = isNativeApp();
 
+      // Extract access_token and refresh_token from the hash for native implicit flows (like recovery)
+      const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+
       if (code && isNative) {
         // On native, we must exchange the code manually because the deep link
         // doesn't trigger Supabase's automatic on-load processing
@@ -41,6 +46,24 @@ function AuthCallbackPage() {
           navigate({ to: "/auth", replace: true });
         } else {
           if (type === "recovery") {
+            navigate({ to: "/auth", search: { mode: "reset" }, replace: true });
+          } else {
+            navigate({ to: "/", replace: true });
+          }
+        }
+      } else if (accessToken && refreshToken && isNative) {
+        // For native implicit flows (like recovery), manually set the session
+        // because the synthetic hash update might not be caught by Supabase
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (error) {
+          toast.error(error.message);
+          navigate({ to: "/auth", replace: true });
+        } else {
+          if (type === "recovery" || url.hash.includes("type=recovery")) {
             navigate({ to: "/auth", search: { mode: "reset" }, replace: true });
           } else {
             navigate({ to: "/", replace: true });
