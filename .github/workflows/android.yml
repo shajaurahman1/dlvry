@@ -38,9 +38,9 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: "dummy"
           SUPABASE_PUBLISHABLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6Y2NzZ3VuaWFmd25lZGxwc21nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMDQzOTQsImV4cCI6MjA5ODU4MDM5NH0.twtoMlF7yHo2af3NCwdyRJTSj2MN_3vhfJ29TGSbjCk"
           # Public Google "Web application" OAuth Client ID (not a secret) used by
-          # native "Sign in with Google". Set a GOOGLE_WEB_CLIENT_ID repo secret to
-          # override the placeholder without committing the real value here.
-          VITE_GOOGLE_WEB_CLIENT_ID: "${{ secrets.GOOGLE_WEB_CLIENT_ID || 'REPLACE_WITH_YOUR_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com' }}"
+          # native "Sign in with Google" — the same one set on Supabase's Google
+          # provider. A GOOGLE_WEB_CLIENT_ID repo secret still overrides this.
+          VITE_GOOGLE_WEB_CLIENT_ID: "${{ secrets.GOOGLE_WEB_CLIENT_ID || '1041050033360-0igighhmuqo0d62mimgdoerea15idh6p.apps.googleusercontent.com' }}"
         run: npm run build
 
       - name: Sync Capacitor
