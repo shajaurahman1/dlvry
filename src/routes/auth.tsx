@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { DlvryLogo } from "@/components/brand/logo";
@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { isNativeApp } from "@/lib/platform";
+import { googleOneTapSignIn } from "@/lib/google-one-tap";
 import { z } from "zod";
 
 type SearchParams = {
@@ -15,12 +17,6 @@ type SearchParams = {
 };
 
 export const Route = createFileRoute("/auth")({
-  // TEMPORARY: login is bypassed app-wide, so this screen is unreachable —
-  // bounce straight to "/" instead of ever rendering a login form. Restore
-  // authentication by deleting this beforeLoad.
-  beforeLoad: () => {
-    throw redirect({ to: "/" });
-  },
   validateSearch: (s: Record<string, unknown>): SearchParams => ({
     role: s.role === "shopkeeper" || s.role === "driver" || s.role === "admin" ? s.role : undefined,
     mode:
@@ -91,6 +87,42 @@ function AuthPage() {
     }
   };
 
+  const signInWithGoogle = async () => {
+    setBusy(true);
+    try {
+      if (isNativeApp()) {
+        const { idToken, nonce } = await googleOneTapSignIn();
+        const { error } = await supabase.auth.signInWithIdToken({
+          provider: "google",
+          token: idToken,
+          nonce,
+        });
+        if (error) throw error;
+        toast.success("Welcome back.");
+      } else {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo: `${window.location.origin}/auth-callback` },
+        });
+        if (error) throw error;
+        // Browser redirects away; nothing further to do here.
+      }
+    } catch (err: unknown) {
+      const code = (err as { code?: string } | undefined)?.code;
+      if (code === "cancelled") {
+        // User dismissed the account picker — not an error worth surfacing.
+      } else if (code === "no_credential") {
+        toast.error("No Google account found on this device.");
+      } else {
+        toast.error(
+          err instanceof Error ? err.message : "Google sign-in failed. Please try again.",
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (tab === "forgot") {
@@ -98,6 +130,11 @@ function AuthPage() {
       return;
     }
     if (tab === "reset") {
+      const code = resetCode.trim();
+      if (!/^\d{6}$/.test(code)) {
+        toast.error("Enter the 6-digit code from your email.");
+        return;
+      }
       if (password !== confirmPassword) {
         toast.error("Passwords do not match.");
         return;
@@ -108,15 +145,12 @@ function AuthPage() {
       }
       setBusy(true);
       try {
-        const code = resetCode.trim();
-        if (code) {
-          const { error: vErr } = await supabase.auth.verifyOtp({
-            email: email.trim().toLowerCase(),
-            token: code,
-            type: "recovery",
-          });
-          if (vErr) throw new Error("That code is invalid or expired. Request a new one.");
-        }
+        const { error: vErr } = await supabase.auth.verifyOtp({
+          email: email.trim().toLowerCase(),
+          token: code,
+          type: "recovery",
+        });
+        if (vErr) throw new Error("That code is invalid or expired. Request a new one.");
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;
         toast.success("Password updated. You're signed in.");
@@ -226,6 +260,42 @@ function AuthPage() {
             </p>
           )}
 
+          {tab !== "reset" && tab !== "forgot" && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void signInWithGoogle()}
+              className="mb-4 flex h-11 w-full items-center justify-center gap-2.5 rounded-full border border-border bg-card text-sm font-semibold transition hover:bg-muted disabled:opacity-60"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.65l-3.57-2.77c-.99.66-2.26 1.06-3.71 1.06-2.86 0-5.29-1.93-6.15-4.53H2.18v2.84A11 11 0 0 0 12 23Z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.85 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.67-2.84Z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.65l3.15-3.15C17.45 2.12 14.96 1 12 1a11 11 0 0 0-9.82 6.05l3.67 2.84c.86-2.6 3.29-4.51 6.15-4.51Z"
+                />
+              </svg>
+              Continue with Google
+            </button>
+          )}
+
+          {tab !== "reset" && tab !== "forgot" && (
+            <div className="mb-4 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" /> or{" "}
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          )}
+
           <form onSubmit={submit} className="space-y-4">
             {tab === "signup" && (
               <div>
@@ -262,6 +332,7 @@ function AuthPage() {
                   onChange={(e) => setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   placeholder="123456"
                   className="mt-1.5 tracking-[0.4em]"
+                  required
                 />
               </div>
             )}

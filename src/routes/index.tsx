@@ -31,6 +31,12 @@ function Landing() {
     <div className="min-h-screen bg-background">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <DlvryLogo className="text-2xl" />
+        <Link
+          to="/auth"
+          className="rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
+        >
+          Sign in
+        </Link>
       </header>
 
       <main className="mx-auto max-w-6xl px-6">
@@ -47,13 +53,15 @@ function Landing() {
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
-              to="/onboarding"
+              to="/auth"
+              search={{ role: "shopkeeper" }}
               className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-90"
             >
               I'm a business partner <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
-              to="/onboarding"
+              to="/auth"
+              search={{ role: "driver" }}
               className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-6 py-3 text-sm font-semibold text-foreground transition hover:bg-accent"
             >
               I'm a delivery partner
@@ -97,7 +105,7 @@ function Landing() {
             and the customer.
           </p>
           <Link
-            to="/onboarding"
+            to="/auth"
             className="mt-2 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground"
           >
             Get started <ArrowRight className="h-4 w-4" />
