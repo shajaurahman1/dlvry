@@ -19,6 +19,17 @@ android {
                 keyPassword keystoreProperties['keyPassword']
             }
         }
+        debug {
+            // Fixed, non-secret debug keystore checked into the repo so every CI-built
+            // debug APK shares the same signing certificate. Without this, Android Gradle
+            // Plugin auto-generates a new debug.keystore on each ephemeral CI runner, so
+            // consecutive debug APKs get different signatures and the Android package
+            // installer silently refuses to install the new one over the old one.
+            storeFile file("ci-debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
     }
 
     defaultConfig {
@@ -35,6 +46,9 @@ android {
         }
     }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
