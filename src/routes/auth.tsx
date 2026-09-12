@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { isNativeApp } from "@/lib/platform";
-import { lovable } from "@/integrations/lovable/index";
+import { googleOneTapSignIn } from "@/lib/google-one-tap";
 import { z } from "zod";
 
 type SearchParams = {
@@ -47,17 +47,13 @@ function AuthPage() {
   const { role, mode } = Route.useSearch();
   const navigate = useNavigate();
   const { user, roles, loading } = useAuth();
-  const [tab, setTab] = useState<"signin" | "signup" | "reset" | "forgot">(
-    mode ?? "signin",
-  );
+  const [tab, setTab] = useState<"signin" | "signup" | "reset" | "forgot">(mode ?? "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [resetCode, setResetCode] = useState("");
   const [fullName, setFullName] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [busy, setBusy] = useState(false);
-
 
   useEffect(() => {
     if (!loading && user) {
@@ -82,13 +78,45 @@ function AuthPage() {
           : `${window.location.origin}/auth-callback?type=recovery`,
       });
       if (error) throw error;
-      toast.success("Check your email and tap the button — it opens DLVRY.");
-      setResetCode("");
-      setPassword("");
-      setConfirmPassword("");
-      setTab("reset");
+      toast.success("We sent a reset link to your email. Open it on this device.");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Couldn't send the code.");
+      toast.error(err instanceof Error ? err.message : "Couldn't send the reset link.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    setBusy(true);
+    try {
+      if (isNativeApp()) {
+        const { idToken, nonce } = await googleOneTapSignIn();
+        const { error } = await supabase.auth.signInWithIdToken({
+          provider: "google",
+          token: idToken,
+          nonce,
+        });
+        if (error) throw error;
+        toast.success("Welcome back.");
+      } else {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo: `${window.location.origin}/auth-callback` },
+        });
+        if (error) throw error;
+        // Browser redirects away; nothing further to do here.
+      }
+    } catch (err: unknown) {
+      const code = (err as { code?: string } | undefined)?.code;
+      if (code === "cancelled") {
+        // User dismissed the account picker — not an error worth surfacing.
+      } else if (code === "no_credential") {
+        toast.error("No Google account found on this device.");
+      } else {
+        toast.error(
+          err instanceof Error ? err.message : "Google sign-in failed. Please try again.",
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -111,22 +139,16 @@ function AuthPage() {
       }
       setBusy(true);
       try {
-        const code = resetCode.trim();
-        if (code) {
-          const { error: vErr } = await supabase.auth.verifyOtp({
-            email: email.trim().toLowerCase(),
-            token: code,
-            type: "recovery",
-          });
-          if (vErr) throw new Error("That code is invalid or expired. Request a new one.");
-        }
+        // Reaching this screen already required tapping the emailed reset
+        // link, which established a recovery session (see auth-callback.tsx)
+        // — Supabase verified that server-side, so this is just applying the
+        // new password to the already-authenticated recovery session.
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;
         toast.success("Password updated. You're signed in.");
         setTab("signin");
         setPassword("");
         setConfirmPassword("");
-        setResetCode("");
       } catch (err: unknown) {
         toast.error(err instanceof Error ? err.message : "Couldn't update password.");
       } finally {
@@ -209,7 +231,7 @@ function AuthPage() {
             <div className="mb-6 rounded-lg bg-accent px-3 py-4 text-center">
               <h3 className="text-base font-semibold text-foreground">Reset Password</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Enter your email and we'll send you a 6-digit code.
+                Enter your email and we'll send you a link to reset your password.
               </p>
             </div>
           )}
@@ -217,10 +239,7 @@ function AuthPage() {
           {tab === "reset" && (
             <div className="mb-6 rounded-lg bg-accent px-3 py-4 text-center">
               <h3 className="text-base font-semibold text-foreground">Set New Password</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Enter the code from your email and choose a new password.
-              </p>
-
+              <p className="mt-1 text-xs text-muted-foreground">Choose a new password.</p>
             </div>
           )}
 
@@ -234,42 +253,7 @@ function AuthPage() {
             <button
               type="button"
               disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  if (isNativeApp()) {
-                    const { data, error } = await supabase.auth.signInWithOAuth({
-                      provider: "google",
-                      options: {
-                        redirectTo: "in.dlvry.app://callback",
-                        skipBrowserRedirect: true,
-                      },
-                    });
-                    if (error) throw error;
-                    if (data?.url) {
-                      const { Browser } = await import("@capacitor/browser");
-                      await Browser.open({ url: data.url });
-                    }
-                    return;
-                  }
-
-                  const result = await lovable.auth.signInWithOAuth("google", {
-                    redirect_uri: window.location.origin,
-                  });
-                  if (result.error) {
-                    toast.error("Google sign-in failed. Please try again.");
-                    return;
-                  }
-                  if (result.redirected) return;
-                  // signed in — the redirect effect above routes the user
-
-                } catch {
-                  toast.error("Google sign-in failed. Please try again.");
-                } finally {
-                  setBusy(false);
-                }
-              }}
-
+              onClick={() => void signInWithGoogle()}
               className="mb-4 flex h-11 w-full items-center justify-center gap-2.5 rounded-full border border-border bg-card text-sm font-semibold transition hover:bg-muted disabled:opacity-60"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
@@ -314,33 +298,20 @@ function AuthPage() {
                 />
               </div>
             )}
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@gmail.com"
-                className="mt-1.5"
-                required
-              />
-            </div>
-            {tab === "reset" && (
+            {tab !== "reset" && (
               <div>
-                <Label htmlFor="code">6-digit code</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="code"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={resetCode}
-                  onChange={(e) => setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="123456"
-                  className="mt-1.5 tracking-[0.4em]"
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@gmail.com"
+                  className="mt-1.5"
+                  required
                 />
               </div>
             )}
-
             {tab !== "forgot" && (
               <div>
                 <Label htmlFor="pw">{tab === "reset" ? "New Password" : "Password"}</Label>
@@ -403,7 +374,7 @@ function AuthPage() {
                 : tab === "signin"
                   ? "Sign in"
                   : tab === "forgot"
-                    ? "Send Recovery Link"
+                    ? "Send Reset Link"
                     : tab === "reset"
                       ? "Update Password"
                       : "Create account"}
@@ -432,6 +403,10 @@ function AuthPage() {
           <Link to="/terms" className="underline underline-offset-2">
             Terms &amp; Conditions
           </Link>
+        </p>
+        {/* TEMPORARY: remove after confirming the APK build pipeline packages the latest commit. */}
+        <p className="mt-2 text-center text-[10px] text-muted-foreground/60">
+          DLVRY BUILD TEST 2026-09-12
         </p>
       </div>
     </div>
