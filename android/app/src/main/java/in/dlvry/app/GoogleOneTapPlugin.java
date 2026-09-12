@@ -19,7 +19,6 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
-import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -85,7 +84,7 @@ public class GoogleOneTapPlugin extends Plugin {
               data.put("idToken", googleIdTokenCredential.getIdToken());
               data.put("nonce", rawNonce);
               call.resolve(data);
-            } catch (GoogleIdTokenParsingException e) {
+            } catch (Exception e) {
               call.reject("Could not parse Google ID token", e);
             }
           } else {
