@@ -13,20 +13,13 @@ import { z } from "zod";
 
 type SearchParams = {
   role?: "shopkeeper" | "driver" | "admin";
-  mode?: "signin" | "signup" | "reset" | "forgot";
+  mode?: "signin" | "signup" | "forgot";
 };
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>): SearchParams => ({
     role: s.role === "shopkeeper" || s.role === "driver" || s.role === "admin" ? s.role : undefined,
-    mode:
-      s.mode === "signup"
-        ? "signup"
-        : s.mode === "reset"
-          ? "reset"
-          : s.mode === "forgot"
-            ? "forgot"
-            : "signin",
+    mode: s.mode === "signup" ? "signup" : s.mode === "forgot" ? "forgot" : "signin",
   }),
   component: AuthPage,
 });
@@ -47,17 +40,12 @@ function AuthPage() {
   const { role, mode } = Route.useSearch();
   const navigate = useNavigate();
   const { user, roles, loading } = useAuth();
-  const [tab, setTab] = useState<"signin" | "signup" | "reset" | "forgot">(
-    mode ?? "signin",
-  );
+  const [tab, setTab] = useState<"signin" | "signup" | "forgot">(mode ?? "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [resetCode, setResetCode] = useState("");
   const [fullName, setFullName] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [busy, setBusy] = useState(false);
-
 
   useEffect(() => {
     if (!loading && user) {
@@ -77,18 +65,14 @@ function AuthPage() {
     setBusy(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(em, {
-        redirectTo: isNativeApp()
-          ? "in.dlvry.app://callback?type=recovery"
-          : `${window.location.origin}/auth-callback?type=recovery`,
+        redirectTo: `${window.location.origin}/auth-callback?type=recovery`,
       });
       if (error) throw error;
-      toast.success("Check your email and tap the button — it opens DLVRY.");
-      setResetCode("");
+      toast.success("Check your email for the password reset link.");
       setPassword("");
-      setConfirmPassword("");
-      setTab("reset");
+      setTab("signin");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Couldn't send the code.");
+      toast.error(err instanceof Error ? err.message : "Couldn't send the link.");
     } finally {
       setBusy(false);
     }
@@ -100,43 +84,8 @@ function AuthPage() {
       await forgotPassword();
       return;
     }
-    if (tab === "reset") {
-      if (password !== confirmPassword) {
-        toast.error("Passwords do not match.");
-        return;
-      }
-      if (password.length < 6) {
-        toast.error("Password must be at least 6 characters.");
-        return;
-      }
-      setBusy(true);
-      try {
-        const code = resetCode.trim();
-        if (code) {
-          const { error: vErr } = await supabase.auth.verifyOtp({
-            email: email.trim().toLowerCase(),
-            token: code,
-            type: "recovery",
-          });
-          if (vErr) throw new Error("That code is invalid or expired. Request a new one.");
-        }
-        const { error } = await supabase.auth.updateUser({ password });
-        if (error) throw error;
-        toast.success("Password updated. You're signed in.");
-        setTab("signin");
-        setPassword("");
-        setConfirmPassword("");
-        setResetCode("");
-      } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : "Couldn't update password.");
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
 
     // Continue with existing signin/signup logic
-    e.preventDefault();
     // Continue with existing signin/signup logic
     const parsed = schema.safeParse({ email, password, fullName });
     if (!parsed.success) {
@@ -188,7 +137,7 @@ function AuthPage() {
           <DlvryLogo className="text-3xl" />
         </Link>
         <div className="card-elevated p-8">
-          {tab !== "reset" && tab !== "forgot" && (
+          {tab !== "forgot" && (
             <div className="mb-6 flex gap-1 rounded-full bg-muted p-1">
               {(["signin", "signup"] as const).map((t) => (
                 <button
@@ -214,23 +163,13 @@ function AuthPage() {
             </div>
           )}
 
-          {tab === "reset" && (
-            <div className="mb-6 rounded-lg bg-accent px-3 py-4 text-center">
-              <h3 className="text-base font-semibold text-foreground">Set New Password</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Enter the code from your email and choose a new password.
-              </p>
-
-            </div>
-          )}
-
           {role && tab === "signup" && (
             <p className="mb-4 rounded-lg bg-accent px-3 py-2 text-xs text-muted-foreground">
               Signing up as <span className="font-semibold capitalize text-foreground">{role}</span>
             </p>
           )}
 
-          {tab !== "reset" && tab !== "forgot" && (
+          {tab !== "forgot" && (
             <button
               type="button"
               disabled={busy}
@@ -262,7 +201,6 @@ function AuthPage() {
                   }
                   if (result.redirected) return;
                   // signed in — the redirect effect above routes the user
-
                 } catch {
                   toast.error("Google sign-in failed. Please try again.");
                 } finally {
@@ -294,7 +232,7 @@ function AuthPage() {
             </button>
           )}
 
-          {tab !== "reset" && tab !== "forgot" && (
+          {tab !== "forgot" && (
             <div className="mb-4 flex items-center gap-3 text-xs text-muted-foreground">
               <span className="h-px flex-1 bg-border" /> or{" "}
               <span className="h-px flex-1 bg-border" />
@@ -326,43 +264,14 @@ function AuthPage() {
                 required
               />
             </div>
-            {tab === "reset" && (
-              <div>
-                <Label htmlFor="code">6-digit code</Label>
-                <Input
-                  id="code"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={resetCode}
-                  onChange={(e) => setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="123456"
-                  className="mt-1.5 tracking-[0.4em]"
-                />
-              </div>
-            )}
-
             {tab !== "forgot" && (
               <div>
-                <Label htmlFor="pw">{tab === "reset" ? "New Password" : "Password"}</Label>
+                <Label htmlFor="pw">Password</Label>
                 <Input
                   id="pw"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="mt-1.5"
-                  required
-                />
-              </div>
-            )}
-            {tab === "reset" && (
-              <div>
-                <Label htmlFor="confirmPw">Confirm Password</Label>
-                <Input
-                  id="confirmPw"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
                   className="mt-1.5"
                   required
@@ -391,11 +300,7 @@ function AuthPage() {
             )}
             <Button
               type="submit"
-              disabled={
-                busy ||
-                (tab === "signup" && !acceptTerms) ||
-                (tab === "reset" && password !== confirmPassword)
-              }
+              disabled={busy || (tab === "signup" && !acceptTerms)}
               className="h-11 w-full rounded-full text-sm font-semibold"
             >
               {busy
@@ -404,11 +309,9 @@ function AuthPage() {
                   ? "Sign in"
                   : tab === "forgot"
                     ? "Send Recovery Link"
-                    : tab === "reset"
-                      ? "Update Password"
-                      : "Create account"}
+                    : "Create account"}
             </Button>
-            {(tab === "forgot" || tab === "reset") && (
+            {tab === "forgot" && (
               <button
                 type="button"
                 onClick={() => setTab("signin")}
