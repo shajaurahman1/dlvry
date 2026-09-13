@@ -60,13 +60,13 @@ function AuthPage() {
 
 
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && user && mode !== "reset") {
       if (roles.includes("admin")) navigate({ to: "/admin" });
       else if (roles.includes("shopkeeper")) navigate({ to: "/shop" });
       else if (roles.includes("driver")) navigate({ to: "/driver" });
       else navigate({ to: "/onboarding" });
     }
-  }, [loading, user, roles, navigate]);
+  }, [loading, user, roles, mode, navigate]);
 
   const forgotPassword = async () => {
     const em = email.trim().toLowerCase();
@@ -119,6 +119,12 @@ function AuthPage() {
             type: "recovery",
           });
           if (vErr) throw new Error("That code is invalid or expired. Request a new one.");
+        }
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) {
+          throw new Error("Your recovery session has expired. Request a new link.");
         }
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;

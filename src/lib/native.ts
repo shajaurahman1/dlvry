@@ -30,7 +30,43 @@ export function useNativeShell() {
 
       try {
         const { App } = await import("@capacitor/app");
-        const handle = await App.addListener("backButton", ({ canGoBack }) => {
+        let lastHandledUrl = "";
+        const handleUrl = async (rawUrl: string) => {
+          if (rawUrl === lastHandledUrl) return;
+          lastHandledUrl = rawUrl;
+
+          let url: URL;
+          try {
+            url = new URL(rawUrl);
+          } catch {
+            return;
+          }
+
+          const hash = url.hash.replace(/^#/, "");
+          const hashParams = new URLSearchParams(hash);
+          const isRecovery =
+            url.searchParams.get("type") === "recovery" || hashParams.get("type") === "recovery";
+          if (url.host !== "callback" && url.hostname !== "dlvry.lovable.app" && !isRecovery) {
+            return;
+          }
+
+          try {
+            const { Browser } = await import("@capacitor/browser");
+            await Browser.close().catch(() => {});
+          } catch {
+            // ignore
+          }
+
+          const search = Object.fromEntries(url.searchParams.entries());
+          if (isRecovery) search.type = "recovery";
+          await router.navigate({
+            to: "/auth-callback",
+            hash,
+            search: search as Record<string, unknown>,
+          });
+        };
+
+        const backHandle = await App.addListener("backButton", ({ canGoBack }) => {
           const path = router.state.location.pathname;
           const atRoot = ROOT_PATHS.includes(path);
 
@@ -47,39 +83,19 @@ export function useNativeShell() {
             toast("Press back again to exit");
           }
         });
+
+        const urlHandle = await App.addListener("appUrlOpen", (event) => {
+          void handleUrl(event.url);
+        });
+
         remove = () => {
-          handle.remove();
-          urlHandle.remove();
+          void backHandle.remove();
+          void urlHandle.remove();
         };
 
-        const urlHandle = await App.addListener("appUrlOpen", async (event) => {
-          if (
-            event.url.includes("callback") ||
-            event.url.includes("type=recovery") ||
-            event.url.includes("dlvry.lovable.app")
-          ) {
-            try {
-              const { Browser } = await import("@capacitor/browser");
-              await Browser.close().catch(() => {});
-            } catch {
-              // ignore
-            }
-            const url = new URL(event.url);
-
-            // If it's a direct deep link to the lovable app domain, it's likely a recovery link
-            // Adjust the URL so the router correctly processes the hash/search parameters
-            const isRecovery = event.url.includes("type=recovery");
-
-            router.navigate({
-              to: "/auth-callback",
-              hash: url.hash.replace(/^#/, ""),
-              search: {
-                ...Object.fromEntries(url.searchParams.entries()),
-                ...(isRecovery ? { type: "recovery" } : {}),
-              } as Record<string, unknown>,
-            });
-          }
-        });
+        // appUrlOpen is not guaranteed to fire when Android starts a cold app.
+        const launch = await App.getLaunchUrl();
+        if (launch?.url) void handleUrl(launch.url);
       } catch {
         /* app plugin unavailable */
       }
