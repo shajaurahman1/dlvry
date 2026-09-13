@@ -72,8 +72,8 @@ function AuthCallbackPage() {
             navigate({ to: "/", replace: true });
           }
         }
-      } else if (accessToken && refreshToken && isNative) {
-        // For native implicit flows (like recovery), manually set the session
+      } else if (accessToken && refreshToken) {
+        // For implicit flows (like recovery) on web or native, manually set the session
         // because the synthetic hash update might not be caught by Supabase
         const { error } = await supabase.auth.setSession({
           access_token: accessToken,

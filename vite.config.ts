@@ -21,10 +21,14 @@ function prerenderServerEntryShim(): Plugin {
     writeBundle() {
       const distDir = resolve(process.cwd(), "dist/server");
       mkdirSync(distDir, { recursive: true });
+      const importPath = process.env.VERCEL
+        ? "../../.vercel/output/functions/__server.func/index.mjs"
+        : "../../.output/server/index.mjs";
+
       writeFileSync(
         resolve(distDir, "server.js"),
         [
-          "import handler from '../../.output/server/index.mjs';",
+          `import handler from '${importPath}';`,
           "// The preview server passes a Node-backed Request whose `ip` is a read-only getter;",
           "// the worker entry augments it, so hand it a plain Request copy instead.",
           "export default {",

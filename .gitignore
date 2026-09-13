@@ -33,3 +33,4 @@ dist-ssr
 *.jks
 keystore.properties
 *.keystore
+.vercel
