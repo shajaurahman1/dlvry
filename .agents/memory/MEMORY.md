@@ -1,0 +1,1 @@
+- [Build validation](build-validation.md) — current TanStack Start dependencies need Node 22; prerender may fail in this container when IPv6 is unavailable.
