@@ -65,7 +65,7 @@ function AuthPage() {
     setBusy(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(em, {
-        redirectTo: `https://dlvry-lake.vercel.app/auth-callback?type=recovery`,
+        redirectTo: `https://dlvry-b6gok4j8z-shajau-rahmans-projects.vercel.app/auth-callback?type=recovery`,
       });
       if (error) throw error;
       toast.success("Check your email for the password reset link.");
