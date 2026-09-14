@@ -52,11 +52,11 @@ export function useNativeShell() {
           urlHandle.remove();
         };
 
-        const urlHandle = await App.addListener("appUrlOpen", async (event) => {
+        const handleUrl = async (urlStr: string) => {
           if (
-            event.url.includes("callback") ||
-            event.url.includes("type=recovery") ||
-            event.url.includes("dlvry.lovable.app")
+            urlStr.includes("callback") ||
+            urlStr.includes("type=recovery") ||
+            urlStr.includes("dlvry.lovable.app")
           ) {
             try {
               const { Browser } = await import("@capacitor/browser");
@@ -64,11 +64,11 @@ export function useNativeShell() {
             } catch {
               // ignore
             }
-            const url = new URL(event.url);
+            const url = new URL(urlStr);
 
             // If it's a direct deep link to the lovable app domain, it's likely a recovery link
             // Adjust the URL so the router correctly processes the hash/search parameters
-            const isRecovery = event.url.includes("type=recovery");
+            const isRecovery = urlStr.includes("type=recovery");
 
             router.navigate({
               to: "/auth-callback",
@@ -79,7 +79,17 @@ export function useNativeShell() {
               } as Record<string, unknown>,
             });
           }
+        };
+
+        const urlHandle = await App.addListener("appUrlOpen", async (event) => {
+          await handleUrl(event.url);
         });
+
+        // Handle cold start url
+        const launchUrl = await App.getLaunchUrl();
+        if (launchUrl?.url) {
+          await handleUrl(launchUrl.url);
+        }
       } catch {
         /* app plugin unavailable */
       }

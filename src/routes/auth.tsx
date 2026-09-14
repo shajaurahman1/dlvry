@@ -13,27 +13,20 @@ import { z } from "zod";
 
 // The password-reset email always links to this website — not the native
 // app directly — since email clients can't reliably hand off a custom-scheme
-// link to an installed app. The site completes the reset, then tells the
-// user to switch back to the app themselves.
+// link to an installed app. The site (auth-callback.tsx) completes the
+// reset, then tells the user to switch back to the app themselves.
 const PUBLIC_WEB_ORIGIN =
   (import.meta.env.VITE_PUBLIC_WEB_ORIGIN as string | undefined) || "https://dlvry-nine.vercel.app";
 
 type SearchParams = {
   role?: "shopkeeper" | "driver" | "admin";
-  mode?: "signin" | "signup" | "reset" | "forgot";
+  mode?: "signin" | "signup" | "forgot";
 };
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>): SearchParams => ({
     role: s.role === "shopkeeper" || s.role === "driver" || s.role === "admin" ? s.role : undefined,
-    mode:
-      s.mode === "signup"
-        ? "signup"
-        : s.mode === "reset"
-          ? "reset"
-          : s.mode === "forgot"
-            ? "forgot"
-            : "signin",
+    mode: s.mode === "signup" ? "signup" : s.mode === "forgot" ? "forgot" : "signin",
   }),
   component: AuthPage,
 });
@@ -54,23 +47,21 @@ function AuthPage() {
   const { role, mode } = Route.useSearch();
   const navigate = useNavigate();
   const { user, roles, loading } = useAuth();
-  const [tab, setTab] = useState<"signin" | "signup" | "reset" | "forgot">(mode ?? "signin");
+  const [tab, setTab] = useState<"signin" | "signup" | "forgot">(mode ?? "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [resetComplete, setResetComplete] = useState(false);
 
   useEffect(() => {
-    if (!loading && user && !resetComplete) {
+    if (!loading && user) {
       if (roles.includes("admin")) navigate({ to: "/admin" });
       else if (roles.includes("shopkeeper")) navigate({ to: "/shop" });
       else if (roles.includes("driver")) navigate({ to: "/driver" });
       else navigate({ to: "/onboarding" });
     }
-  }, [loading, user, roles, navigate, resetComplete]);
+  }, [loading, user, roles, navigate]);
 
   const forgotPassword = async () => {
     const em = email.trim().toLowerCase();
@@ -84,9 +75,11 @@ function AuthPage() {
         redirectTo: `${PUBLIC_WEB_ORIGIN}/auth-callback?type=recovery`,
       });
       if (error) throw error;
-      toast.success("We sent a reset link to your email.");
+      toast.success("Check your email for the password reset link.");
+      setPassword("");
+      setTab("signin");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Couldn't send the reset link.");
+      toast.error(err instanceof Error ? err.message : "Couldn't send the link.");
     } finally {
       setBusy(false);
     }
@@ -134,42 +127,7 @@ function AuthPage() {
       await forgotPassword();
       return;
     }
-    if (tab === "reset") {
-      if (password !== confirmPassword) {
-        toast.error("Passwords do not match.");
-        return;
-      }
-      if (password.length < 6) {
-        toast.error("Password must be at least 6 characters.");
-        return;
-      }
-      setBusy(true);
-      try {
-        // Reaching this screen already required tapping the emailed reset
-        // link, which established a recovery session (see auth-callback.tsx)
-        // — Supabase verified that server-side, so this is just applying the
-        // new password to the already-authenticated recovery session.
-        const { error } = await supabase.auth.updateUser({ password });
-        if (error) throw error;
-        // This runs on the website, not the app — sign out of the temporary
-        // recovery session immediately rather than leaving the account
-        // signed in on a browser, and show a plain "go back to the app"
-        // message instead of the dashboard.
-        await supabase.auth.signOut();
-        setResetComplete(true);
-        setPassword("");
-        setConfirmPassword("");
-      } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : "Couldn't update password.");
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
 
-    // Continue with existing signin/signup logic
-    e.preventDefault();
-    // Continue with existing signin/signup logic
     const parsed = schema.safeParse({ email, password, fullName });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
@@ -213,25 +171,6 @@ function AuthPage() {
     }
   };
 
-  if (tab === "reset" && resetComplete) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
-        <div className="w-full max-w-md text-center">
-          <div className="mb-10 flex justify-center">
-            <DlvryLogo className="text-3xl" />
-          </div>
-          <div className="card-elevated p-8">
-            <h3 className="text-lg font-semibold text-foreground">Password updated</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Your password has been changed. You can close this page and go back to the DLVRY app
-              to sign in.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
       <div className="w-full max-w-md">
@@ -239,7 +178,7 @@ function AuthPage() {
           <DlvryLogo className="text-3xl" />
         </Link>
         <div className="card-elevated p-8">
-          {tab !== "reset" && tab !== "forgot" && (
+          {tab !== "forgot" && (
             <div className="mb-6 flex gap-1 rounded-full bg-muted p-1">
               {(["signin", "signup"] as const).map((t) => (
                 <button
@@ -265,20 +204,13 @@ function AuthPage() {
             </div>
           )}
 
-          {tab === "reset" && (
-            <div className="mb-6 rounded-lg bg-accent px-3 py-4 text-center">
-              <h3 className="text-base font-semibold text-foreground">Set New Password</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Choose a new password.</p>
-            </div>
-          )}
-
           {role && tab === "signup" && (
             <p className="mb-4 rounded-lg bg-accent px-3 py-2 text-xs text-muted-foreground">
               Signing up as <span className="font-semibold capitalize text-foreground">{role}</span>
             </p>
           )}
 
-          {tab !== "reset" && tab !== "forgot" && (
+          {tab !== "forgot" && (
             <button
               type="button"
               disabled={busy}
@@ -307,7 +239,7 @@ function AuthPage() {
             </button>
           )}
 
-          {tab !== "reset" && tab !== "forgot" && (
+          {tab !== "forgot" && (
             <div className="mb-4 flex items-center gap-3 text-xs text-muted-foreground">
               <span className="h-px flex-1 bg-border" /> or{" "}
               <span className="h-px flex-1 bg-border" />
@@ -327,42 +259,26 @@ function AuthPage() {
                 />
               </div>
             )}
-            {tab !== "reset" && (
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@gmail.com"
-                  className="mt-1.5"
-                  required
-                />
-              </div>
-            )}
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@gmail.com"
+                className="mt-1.5"
+                required
+              />
+            </div>
             {tab !== "forgot" && (
               <div>
-                <Label htmlFor="pw">{tab === "reset" ? "New Password" : "Password"}</Label>
+                <Label htmlFor="pw">Password</Label>
                 <Input
                   id="pw"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="mt-1.5"
-                  required
-                />
-              </div>
-            )}
-            {tab === "reset" && (
-              <div>
-                <Label htmlFor="confirmPw">Confirm Password</Label>
-                <Input
-                  id="confirmPw"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
                   className="mt-1.5"
                   required
@@ -391,11 +307,7 @@ function AuthPage() {
             )}
             <Button
               type="submit"
-              disabled={
-                busy ||
-                (tab === "signup" && !acceptTerms) ||
-                (tab === "reset" && password !== confirmPassword)
-              }
+              disabled={busy || (tab === "signup" && !acceptTerms)}
               className="h-11 w-full rounded-full text-sm font-semibold"
             >
               {busy
@@ -403,12 +315,10 @@ function AuthPage() {
                 : tab === "signin"
                   ? "Sign in"
                   : tab === "forgot"
-                    ? "Send Reset Link"
-                    : tab === "reset"
-                      ? "Update Password"
-                      : "Create account"}
+                    ? "Send Recovery Link"
+                    : "Create account"}
             </Button>
-            {(tab === "forgot" || tab === "reset") && (
+            {tab === "forgot" && (
               <button
                 type="button"
                 onClick={() => setTab("signin")}
@@ -432,10 +342,6 @@ function AuthPage() {
           <Link to="/terms" className="underline underline-offset-2">
             Terms &amp; Conditions
           </Link>
-        </p>
-        {/* TEMPORARY: remove after confirming the APK build pipeline packages the latest commit. */}
-        <p className="mt-2 text-center text-[10px] text-muted-foreground/60">
-          DLVRY BUILD TEST 2026-09-12
         </p>
       </div>
     </div>

@@ -36,3 +36,4 @@ keystore.properties
 # Fixed, non-secret debug-signing keystore (standard "android"/"androiddebugkey"
 # credentials) so CI-built debug APKs share one signature across builds.
 !android/app/ci-debug.keystore
+.vercel
