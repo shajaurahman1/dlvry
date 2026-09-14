@@ -11,6 +11,13 @@ import { isNativeApp } from "@/lib/platform";
 import { googleOneTapSignIn } from "@/lib/google-one-tap";
 import { z } from "zod";
 
+// The password-reset email always links to this website — not the native
+// app directly — since email clients can't reliably hand off a custom-scheme
+// link to an installed app. The site completes the reset, then tells the
+// user to switch back to the app themselves.
+const PUBLIC_WEB_ORIGIN =
+  (import.meta.env.VITE_PUBLIC_WEB_ORIGIN as string | undefined) || "https://dlvry-nine.vercel.app";
+
 type SearchParams = {
   role?: "shopkeeper" | "driver" | "admin";
   mode?: "signin" | "signup" | "reset" | "forgot";
@@ -54,15 +61,16 @@ function AuthPage() {
   const [fullName, setFullName] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [resetComplete, setResetComplete] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && user && !resetComplete) {
       if (roles.includes("admin")) navigate({ to: "/admin" });
       else if (roles.includes("shopkeeper")) navigate({ to: "/shop" });
       else if (roles.includes("driver")) navigate({ to: "/driver" });
       else navigate({ to: "/onboarding" });
     }
-  }, [loading, user, roles, navigate]);
+  }, [loading, user, roles, navigate, resetComplete]);
 
   const forgotPassword = async () => {
     const em = email.trim().toLowerCase();
@@ -73,12 +81,10 @@ function AuthPage() {
     setBusy(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(em, {
-        redirectTo: isNativeApp()
-          ? "in.dlvry.app://callback?type=recovery"
-          : `${window.location.origin}/auth-callback?type=recovery`,
+        redirectTo: `${PUBLIC_WEB_ORIGIN}/auth-callback?type=recovery`,
       });
       if (error) throw error;
-      toast.success("We sent a reset link to your email. Open it on this device.");
+      toast.success("We sent a reset link to your email.");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Couldn't send the reset link.");
     } finally {
@@ -145,8 +151,12 @@ function AuthPage() {
         // new password to the already-authenticated recovery session.
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;
-        toast.success("Password updated. You're signed in.");
-        setTab("signin");
+        // This runs on the website, not the app — sign out of the temporary
+        // recovery session immediately rather than leaving the account
+        // signed in on a browser, and show a plain "go back to the app"
+        // message instead of the dashboard.
+        await supabase.auth.signOut();
+        setResetComplete(true);
         setPassword("");
         setConfirmPassword("");
       } catch (err: unknown) {
@@ -202,6 +212,25 @@ function AuthPage() {
       setBusy(false);
     }
   };
+
+  if (tab === "reset" && resetComplete) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+        <div className="w-full max-w-md text-center">
+          <div className="mb-10 flex justify-center">
+            <DlvryLogo className="text-3xl" />
+          </div>
+          <div className="card-elevated p-8">
+            <h3 className="text-lg font-semibold text-foreground">Password updated</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your password has been changed. You can close this page and go back to the DLVRY app
+              to sign in.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
