@@ -8,8 +8,15 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { isNativeApp } from "@/lib/platform";
-import { lovable } from "@/integrations/lovable/index";
+import { googleOneTapSignIn } from "@/lib/google-one-tap";
 import { z } from "zod";
+
+// The password-reset email always links to this website — not the native
+// app directly — since email clients can't reliably hand off a custom-scheme
+// link to an installed app. The site (auth-callback.tsx) completes the
+// reset, then tells the user to switch back to the app themselves.
+const PUBLIC_WEB_ORIGIN =
+  (import.meta.env.VITE_PUBLIC_WEB_ORIGIN as string | undefined) || "https://dlvry-nine.vercel.app";
 
 type SearchParams = {
   role?: "shopkeeper" | "driver" | "admin";
@@ -65,7 +72,7 @@ function AuthPage() {
     setBusy(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(em, {
-        redirectTo: `https://dlvry-lake.vercel.app/auth-callback?type=recovery`,
+        redirectTo: `${PUBLIC_WEB_ORIGIN}/auth-callback?type=recovery`,
       });
       if (error) throw error;
       toast.success("Check your email for the password reset link.");
@@ -78,6 +85,42 @@ function AuthPage() {
     }
   };
 
+  const signInWithGoogle = async () => {
+    setBusy(true);
+    try {
+      if (isNativeApp()) {
+        const { idToken, nonce } = await googleOneTapSignIn();
+        const { error } = await supabase.auth.signInWithIdToken({
+          provider: "google",
+          token: idToken,
+          nonce,
+        });
+        if (error) throw error;
+        toast.success("Welcome back.");
+      } else {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo: `${window.location.origin}/auth-callback` },
+        });
+        if (error) throw error;
+        // Browser redirects away; nothing further to do here.
+      }
+    } catch (err: unknown) {
+      const code = (err as { code?: string } | undefined)?.code;
+      if (code === "cancelled") {
+        // User dismissed the account picker — not an error worth surfacing.
+      } else if (code === "no_credential") {
+        toast.error("No Google account found on this device.");
+      } else {
+        toast.error(
+          err instanceof Error ? err.message : "Google sign-in failed. Please try again.",
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (tab === "forgot") {
@@ -85,8 +128,6 @@ function AuthPage() {
       return;
     }
 
-    // Continue with existing signin/signup logic
-    // Continue with existing signin/signup logic
     const parsed = schema.safeParse({ email, password, fullName });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
@@ -158,7 +199,7 @@ function AuthPage() {
             <div className="mb-6 rounded-lg bg-accent px-3 py-4 text-center">
               <h3 className="text-base font-semibold text-foreground">Reset Password</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Enter your email and we'll send you a 6-digit code.
+                Enter your email and we'll send you a link to reset your password.
               </p>
             </div>
           )}
@@ -173,41 +214,7 @@ function AuthPage() {
             <button
               type="button"
               disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  if (isNativeApp()) {
-                    const { data, error } = await supabase.auth.signInWithOAuth({
-                      provider: "google",
-                      options: {
-                        redirectTo: "in.dlvry.app://callback",
-                        skipBrowserRedirect: true,
-                      },
-                    });
-                    if (error) throw error;
-                    if (data?.url) {
-                      const { Browser } = await import("@capacitor/browser");
-                      await Browser.open({ url: data.url });
-                    }
-                    return;
-                  }
-
-                  const result = await lovable.auth.signInWithOAuth("google", {
-                    redirect_uri: window.location.origin,
-                  });
-                  if (result.error) {
-                    toast.error("Google sign-in failed. Please try again.");
-                    return;
-                  }
-                  if (result.redirected) return;
-                  // signed in — the redirect effect above routes the user
-                } catch {
-                  toast.error("Google sign-in failed. Please try again.");
-                } finally {
-                  setBusy(false);
-                }
-              }}
-
+              onClick={() => void signInWithGoogle()}
               className="mb-4 flex h-11 w-full items-center justify-center gap-2.5 rounded-full border border-border bg-card text-sm font-semibold transition hover:bg-muted disabled:opacity-60"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
