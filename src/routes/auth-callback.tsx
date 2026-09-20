@@ -21,6 +21,7 @@ function AuthCallbackPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [recoverySuccess, setRecoverySuccess] = useState(false);
+  const [showAppThanks, setShowAppThanks] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
@@ -146,6 +147,7 @@ function AuthCallbackPage() {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       setRecoverySuccess(true);
+      toast.success("Your password has been updated.");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Couldn't update password.");
     } finally {
@@ -166,9 +168,41 @@ function AuthCallbackPage() {
                 <h3 className="mb-4 text-xl font-semibold text-foreground">
                   Password changed successfully.
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  You can now return to the DLVRY app and sign in with your new password.
-                </p>
+                {showAppThanks ? (
+                  <div className="space-y-6">
+                    <p className="text-sm text-muted-foreground">
+                      Now you can log in inside the app. Thank you.
+                    </p>
+                    <Button
+                      type="button"
+                      onClick={() => navigate({ to: "/auth", replace: true })}
+                      className="h-11 w-full rounded-full text-sm font-semibold"
+                    >
+                      Done
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground mb-4">
+                      What would you like to do next?
+                    </p>
+                    <Button
+                      type="button"
+                      onClick={() => navigate({ to: "/auth", replace: true })}
+                      className="h-11 w-full rounded-full text-sm font-semibold"
+                    >
+                      Back to site
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowAppThanks(true)}
+                      className="h-11 w-full rounded-full text-sm font-semibold"
+                    >
+                      Back to app
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <>

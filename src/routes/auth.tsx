@@ -65,7 +65,7 @@ function AuthPage() {
     setBusy(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(em, {
-        redirectTo: `https://dlvry-b6gok4j8z-shajau-rahmans-projects.vercel.app/auth-callback?type=recovery`,
+        redirectTo: `${window.location.origin}/auth-callback?type=recovery`,
       });
       if (error) throw error;
       toast.success("Check your email for the password reset link.");
@@ -158,7 +158,7 @@ function AuthPage() {
             <div className="mb-6 rounded-lg bg-accent px-3 py-4 text-center">
               <h3 className="text-base font-semibold text-foreground">Reset Password</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Enter your email and we'll send you a 6-digit code.
+                Enter your email and we'll send you a link to create a new password.
               </p>
             </div>
           )}
