@@ -34,3 +34,4 @@ dist-ssr
 keystore.properties
 *.keystore
 .vercel
+.env
