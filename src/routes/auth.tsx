@@ -63,7 +63,11 @@ function AuthPage() {
     setBusy(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(em, {
-        redirectTo: `${window.location.origin}/auth-callback?type=recovery`,
+        redirectTo: `${
+          window.location.origin.startsWith("http") && !window.location.hostname.includes("localhost")
+            ? window.location.origin
+            : "https://dlvry.lovable.app"
+        }/auth-callback?type=recovery`,
       });
       if (error) throw error;
       toast.success("Check your email for the password reset link.");

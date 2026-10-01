@@ -160,44 +160,34 @@ function AuthCallbackPage() {
           <div className="card-elevated p-8">
             {recoverySuccess ? (
               <div className="text-center">
-                <h3 className="mb-4 text-xl font-semibold text-foreground">
-                  Password changed successfully.
+                <h3 className="mb-2 text-xl font-semibold text-foreground">
+                  Password changed successfully
                 </h3>
-                {showAppThanks ? (
-                  <div className="space-y-6">
-                    <p className="text-sm text-muted-foreground">
-                      Now you can log in inside the app. Thank you.
-                    </p>
-                    <Button
-                      type="button"
-                      onClick={() => navigate({ to: "/auth", replace: true })}
-                      className="h-11 w-full rounded-full text-sm font-semibold"
-                    >
-                      Done
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted-foreground mb-4">
-                      What would you like to do next?
-                    </p>
-                    <Button
-                      type="button"
-                      onClick={() => navigate({ to: "/auth", replace: true })}
-                      className="h-11 w-full rounded-full text-sm font-semibold"
-                    >
-                      Back to site
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowAppThanks(true)}
-                      className="h-11 w-full rounded-full text-sm font-semibold"
-                    >
-                      Back to app
-                    </Button>
-                  </div>
-                )}
+                <p className="mb-6 text-sm text-muted-foreground">
+                  {showAppThanks
+                    ? "Open the DLVRY app and sign in with your new password."
+                    : "You can continue with the app now."}
+                </p>
+                <div className="space-y-3">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setShowAppThanks(true);
+                      window.location.href = "in.dlvry.app://callback";
+                    }}
+                    className="h-11 w-full rounded-full text-sm font-semibold"
+                  >
+                    Continue with app
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate({ to: "/", replace: true })}
+                    className="h-11 w-full rounded-full text-sm font-semibold"
+                  >
+                    Go to site dashboard
+                  </Button>
+                </div>
               </div>
             ) : (
               <>
