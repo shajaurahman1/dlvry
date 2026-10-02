@@ -10,3 +10,5 @@
 > the editor, so keep the branch in a working state.
 
 <!-- LOVABLE:END -->
+
+- Never add `.env` to .gitignore — hosted builds read the publishable VITE_SUPABASE_* values from it; without it the app crashes with "Missing Supabase environment variable(s)".
