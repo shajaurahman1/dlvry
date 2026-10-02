@@ -27,7 +27,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="in.dlvry.app" android:host="callback" />
+                <data android:scheme="in.dlvry.connect" android:host="callback" />
             </intent-filter>
 
             <intent-filter android:autoVerify="true">

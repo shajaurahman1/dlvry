@@ -173,7 +173,7 @@ function AuthCallbackPage() {
                     type="button"
                     onClick={() => {
                       setShowAppThanks(true);
-                      window.location.href = "in.dlvry.app://callback";
+                      window.location.href = "in.dlvry.connect://callback";
                     }}
                     className="h-11 w-full rounded-full text-sm font-semibold"
                   >

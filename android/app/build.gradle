@@ -7,7 +7,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "in.dlvry.app"
+    namespace = "in.dlvry.connect"
     compileSdk = rootProject.ext.compileSdkVersion
 
     signingConfigs {
@@ -22,10 +22,10 @@ android {
     }
 
     defaultConfig {
-        applicationId "in.dlvry.app"
+        applicationId "in.dlvry.connect"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
+        versionCode 1
         versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
