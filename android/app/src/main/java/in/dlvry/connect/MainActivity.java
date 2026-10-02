@@ -1,4 +1,4 @@
-package in.dlvry.app;
+package in.dlvry.connect;
 
 import com.getcapacitor.BridgeActivity;
 
