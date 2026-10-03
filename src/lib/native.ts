@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { isNativeApp } from "@/lib/platform";
+import { initPushNotifications } from "@/lib/push";
 
 const ROOT_PATHS = ["/", "/auth", "/shop", "/driver", "/admin"];
 
@@ -16,6 +17,7 @@ export function useNativeShell() {
 
   useEffect(() => {
     if (!isNativeApp()) return;
+    initPushNotifications();
     let remove: (() => void) | undefined;
     let lastBackPress = 0;
 
