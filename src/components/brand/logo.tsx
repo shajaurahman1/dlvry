@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import logo from "@/assets/moveby-logo.asset.json";
 
 export function DlvryLogo({
   className,
@@ -8,17 +9,9 @@ export function DlvryLogo({
   tone?: "dark" | "light";
 }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-baseline gap-[1px] font-black tracking-[-0.06em]",
-        tone === "light" ? "text-background" : "text-foreground",
-        className,
-      )}
-    >
-      <span>DLVR</span>
-      <span className="font-serif-italic font-normal text-[1.15em] leading-none translate-y-[0.05em]">
-        y
-      </span>
+    <span className={cn("inline-flex shrink-0 items-center", className)}>
+      <img src={logo.url} alt="moveby" width={740} height={240}
+        className={cn("h-[1.35em] w-auto max-w-full object-contain", tone === "light" && "brightness-0 invert")} />
     </span>
   );
 }
