@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_preferences: {
+        Row: {
+          active_role: Database["public"]["Enums"]["app_role"]
+          created_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active_role: Database["public"]["Enums"]["app_role"]
+          created_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active_role?: Database["public"]["Enums"]["app_role"]
+          created_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       admin_logs: {
         Row: {
           action: string
