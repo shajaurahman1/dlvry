@@ -1,3 +1,4 @@
+import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/driver/settings")({
+export const Route = createFileRoute("/_authenticated/driver/settings")({ head: () => pageHead("Delivery partner settings", "Update your delivery profile and alert radius on MOVEBY."),
   component: DriverSettings,
 });
 

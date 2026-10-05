@@ -1,3 +1,4 @@
+import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
@@ -22,7 +23,7 @@ const LocationPicker = lazy(() =>
   import("@/components/location-picker").then((m) => ({ default: m.LocationPicker })),
 );
 
-export const Route = createFileRoute("/_authenticated/shop/settings")({ component: ShopSettings });
+export const Route = createFileRoute("/_authenticated/shop/settings")({ head: () => pageHead("Shop settings", "Update your shop details and location on MOVEBY."), component: ShopSettings });
 
 type Shop = Tables<"shopkeepers">;
 

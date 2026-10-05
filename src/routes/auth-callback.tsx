@@ -1,3 +1,4 @@
+import { pageHead } from "@/lib/metadata";
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { DlvryLogo } from "@/components/brand/logo";
 import { Link } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/auth-callback")({
+export const Route = createFileRoute("/auth-callback")({ head: () => pageHead("Account recovery", "Complete sign-in or reset your MOVEBY password and continue in the app."),
   component: AuthCallbackPage,
 });
 
@@ -165,7 +166,7 @@ function AuthCallbackPage() {
                 </h3>
                 <p className="mb-6 text-sm text-muted-foreground">
                   {showAppThanks
-                    ? "Open the DLVRY app and sign in with your new password."
+                    ? "Open the MOVEBY app and sign in with your new password."
                     : "You can continue with the app now."}
                 </p>
                 <div className="space-y-3">

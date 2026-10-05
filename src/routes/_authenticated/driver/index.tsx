@@ -1,3 +1,4 @@
+import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth";
@@ -23,7 +24,7 @@ import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo, minutesLeft } f
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
-export const Route = createFileRoute("/_authenticated/driver/")({ component: DriverDashboard });
+export const Route = createFileRoute("/_authenticated/driver/")({ head: () => pageHead("Delivery dashboard", "Find nearby pickups and manage your MOVEBY deliveries and earnings."), component: DriverDashboard });
 
 type Driver = Tables<"drivers">;
 type Order = Tables<"orders">;

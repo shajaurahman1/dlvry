@@ -1,18 +1,10 @@
+import { pageHead } from "@/lib/metadata";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { DlvryLogo } from "@/components/brand/logo";
 import { ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/terms")({
-  head: () => ({
-    meta: [
-      { title: "Terms & Conditions — DLVRY" },
-      {
-        name: "description",
-        content:
-          "DLVRY is a technology platform connecting shopkeepers with nearby delivery partners. Read the terms of use.",
-      },
-    ],
-  }),
+  head: () => pageHead("Terms & Conditions", "Read the terms for shops and independent delivery partners using MOVEBY."),
   component: TermsPage,
 });
 
@@ -37,21 +29,21 @@ function TermsPage() {
         <h1 className="mt-1 text-4xl font-black tracking-tight">Terms &amp; Conditions</h1>
 
         <div className="prose prose-neutral mt-10 max-w-none text-sm leading-relaxed text-foreground/90">
-          <Section title="1. What DLVRY is">
+          <Section title="1. What MOVEBY is">
             <p>
-              DLVRY is a technology platform that connects independent shopkeepers with independent
-              delivery partners operating in the same area. DLVRY does not sell products, does not
+              MOVEBY is a technology platform that connects independent shopkeepers with independent
+              delivery partners operating in the same area. MOVEBY does not sell products, does not
               employ delivery partners, does not transport goods, and does not collect or hold any
-              payments. Customers do not use the DLVRY application — they place orders by calling
+              payments. Customers do not use the MOVEBY application — they place orders by calling
               the shopkeeper directly.
             </p>
           </Section>
 
-          <Section title="2. Role of DLVRY">
+          <Section title="2. Role of MOVEBY">
             <p>
-              DLVRY only introduces shopkeepers and delivery partners. All communication, cash
+              MOVEBY only introduces shopkeepers and delivery partners. All communication, cash
               handling, product handover and delivery arrangements happen entirely between the
-              shopkeeper, the delivery partner and the customer. DLVRY is not a party to any
+              shopkeeper, the delivery partner and the customer. MOVEBY is not a party to any
               transaction between them.
             </p>
           </Section>
@@ -59,7 +51,7 @@ function TermsPage() {
           <Section title="3. Payments">
             <p>
               All payments occur directly between the shopkeeper, the delivery partner and the
-              customer in cash or by any private arrangement between them. DLVRY does not process,
+              customer in cash or by any private arrangement between them. MOVEBY does not process,
               collect, hold, refund, guarantee or reconcile any payment. Any dispute regarding
               payment is strictly between the parties involved.
             </p>
@@ -67,7 +59,7 @@ function TermsPage() {
 
           <Section title="4. No guarantee of delivery">
             <p>
-              DLVRY does not guarantee that any order will be accepted, picked up, delivered on
+              MOVEBY does not guarantee that any order will be accepted, picked up, delivered on
               time, or delivered at all. Whether an order is fulfilled depends entirely on the
               availability, decisions and conduct of the shopkeeper and delivery partner.
             </p>
@@ -75,7 +67,7 @@ function TermsPage() {
 
           <Section title="5. Limitation of liability">
             <p>
-              DLVRY is not responsible or liable, under any circumstance, for any of the following:
+              MOVEBY is not responsible or liable, under any circumstance, for any of the following:
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-6">
               <li>Fraud, theft, cheating or misrepresentation by any user</li>
@@ -102,7 +94,7 @@ function TermsPage() {
 
           <Section title="7. Account controls">
             <p>
-              DLVRY reserves the right to suspend, block, deactivate or permanently remove any
+              MOVEBY reserves the right to suspend, block, deactivate or permanently remove any
               account at any time, with or without notice, for any reason including but not limited
               to suspected fraud, misuse, unsafe conduct or violation of these terms.
             </p>
@@ -127,7 +119,7 @@ function TermsPage() {
 
         <div className="mt-12 rounded-2xl border border-border bg-muted/40 p-6 text-xs text-muted-foreground">
           If any provision of these terms is found unenforceable, the remaining provisions remain in
-          full effect. DLVRY may update these terms at any time; continued use of the platform after
+          full effect. MOVEBY may update these terms at any time; continued use of the platform after
           an update constitutes acceptance of the updated terms.
         </div>
       </main>
