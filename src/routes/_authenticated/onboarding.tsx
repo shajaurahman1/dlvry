@@ -1,3 +1,4 @@
+import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
@@ -22,7 +23,7 @@ const LocationPicker = lazy(() =>
   import("@/components/location-picker").then((m) => ({ default: m.LocationPicker })),
 );
 
-export const Route = createFileRoute("/_authenticated/onboarding")({ component: Onboarding });
+export const Route = createFileRoute("/_authenticated/onboarding")({ head: () => pageHead("Set up your profile", "Set up your shop or delivery partner profile on MOVEBY."), component: Onboarding });
 
 function Onboarding() {
   const { user, roles, refresh, loading } = useAuth();
@@ -41,7 +42,7 @@ function Onboarding() {
 
   if (!role) {
     return (
-      <AppShell title="Choose your role" subtitle="What brings you to DLVRY?">
+      <AppShell title="Choose your role" subtitle="What brings you to MOVEBY?">
         <div className="grid gap-4 md:grid-cols-2">
           <button
             onClick={() => setRole("shopkeeper")}
@@ -139,7 +140,7 @@ function ShopkeeperForm({
       await supabase
         .from("user_roles")
         .upsert({ user_id: userId, role: "shopkeeper" }, { onConflict: "user_id,role" });
-      toast.success("You're all set — welcome to DLVRY");
+      toast.success("You're all set — welcome to MOVEBY");
       onDone();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to submit");
@@ -281,7 +282,7 @@ function DriverForm({
       await supabase
         .from("user_roles")
         .upsert({ user_id: userId, role: "driver" }, { onConflict: "user_id,role" });
-      toast.success("You're all set — welcome to DLVRY");
+      toast.success("You're all set — welcome to MOVEBY");
       onDone();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to submit");

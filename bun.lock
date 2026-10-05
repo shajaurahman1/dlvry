@@ -53,6 +53,7 @@
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",
         "date-fns": "^4.1.0",
+        "embla-carousel-auto-scroll": "^8.6.0",
         "embla-carousel-react": "^8.6.0",
         "input-otp": "^1.4.2",
         "leaflet": "^1.9.4",
@@ -819,6 +820,8 @@
     "elementtree": ["elementtree@0.1.7", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/elementtree/-/elementtree-0.1.7.tgz", { "dependencies": { "sax": "1.1.4" } }, "sha512-wkgGT6kugeQk/P6VZ/f4T+4HB41BVgNBq5CDIZVbQ02nvTVqAiVTbskxxu3eA/X96lMlfYOwnLQpN2v5E1zDEg=="],
 
     "embla-carousel": ["embla-carousel@8.6.0", "", {}, "sha512-SjWyZBHJPbqxHOzckOfo8lHisEaJWmwd23XppYFYVh10bU66/Pn5tkVkbkCMZVdbUE5eTCI2nD8OyIP4Z+uwkA=="],
+
+    "embla-carousel-auto-scroll": ["embla-carousel-auto-scroll@8.6.0", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/embla-carousel-auto-scroll/-/embla-carousel-auto-scroll-8.6.0.tgz", { "peerDependencies": { "embla-carousel": "8.6.0" } }, "sha512-WT9fWhNXFpbQ6kP+aS07oF5IHYLZ1Dx4DkwgCY8Hv2ZyYd2KMCPfMV1q/cA3wFGuLO7GMgKiySLX90/pQkcOdQ=="],
 
     "embla-carousel-react": ["embla-carousel-react@8.6.0", "", { "dependencies": { "embla-carousel": "8.6.0", "embla-carousel-reactive-utils": "8.6.0" }, "peerDependencies": { "react": "^16.8.0 || ^17.0.1 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc" } }, "sha512-0/PjqU7geVmo6F734pmPqpyHqiM99olvyecY7zdweCw+6tKEXnrE90pBiBbMMU8s5tICemzpQ3hi5EpxzGW+JA=="],
 

@@ -1,3 +1,4 @@
+import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
@@ -10,7 +11,7 @@ import { toast } from "sonner";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo } from "@/lib/orders";
 import type { Tables } from "@/integrations/supabase/types";
 
-export const Route = createFileRoute("/_authenticated/admin/")({ component: AdminDashboard });
+export const Route = createFileRoute("/_authenticated/admin/")({ head: () => pageHead("Administration", "Manage MOVEBY partners, verification and deliveries."), component: AdminDashboard });
 
 type Shop = Tables<"shopkeepers">;
 type Driver = Tables<"drivers">;

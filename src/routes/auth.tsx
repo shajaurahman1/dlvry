@@ -1,3 +1,4 @@
+import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +15,7 @@ type SearchParams = {
   mode?: "signin" | "signup" | "forgot";
 };
 
-export const Route = createFileRoute("/auth")({
+export const Route = createFileRoute("/auth")({ head: () => pageHead("Sign in", "Sign in or create your MOVEBY account to connect with local shops and delivery partners."),
   validateSearch: (s: Record<string, unknown>): SearchParams => ({
     role: s.role === "shopkeeper" || s.role === "driver" || s.role === "admin" ? s.role : undefined,
     mode: s.mode === "signup" ? "signup" : s.mode === "forgot" ? "forgot" : "signin",
