@@ -23,7 +23,10 @@ const LocationPicker = lazy(() =>
   import("@/components/location-picker").then((m) => ({ default: m.LocationPicker })),
 );
 
-export const Route = createFileRoute("/_authenticated/shop/settings")({ head: () => pageHead("Shop settings", "Update your shop details and location on MOVEBY."), component: ShopSettings });
+export const Route = createFileRoute("/_authenticated/shop/settings")({
+  head: () => pageHead("Shop settings", "Update your shop details and location on MOVEBY."),
+  component: ShopSettings,
+});
 
 type Shop = Tables<"shopkeepers">;
 

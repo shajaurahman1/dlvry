@@ -17,7 +17,12 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/driver/settings")({ head: () => pageHead("Delivery partner settings", "Update your delivery profile and alert radius on MOVEBY."),
+export const Route = createFileRoute("/_authenticated/driver/settings")({
+  head: () =>
+    pageHead(
+      "Delivery partner settings",
+      "Update your delivery profile and alert radius on MOVEBY.",
+    ),
   component: DriverSettings,
 });
 

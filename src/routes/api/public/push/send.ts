@@ -28,17 +28,13 @@ export const Route = createFileRoute("/api/public/push/send")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        const { data: notif } = await (supabaseAdmin.from as (t: string) => any)(
-          "notifications",
-        )
+        const { data: notif } = await (supabaseAdmin.from as (t: string) => any)("notifications")
           .select("id,user_id,title,body,order_id")
           .eq("id", body.notification_id)
           .single();
         if (!notif) return new Response("Not found", { status: 404 });
 
-        const { data: tokens } = await (supabaseAdmin.from as (t: string) => any)(
-          "device_tokens",
-        )
+        const { data: tokens } = await (supabaseAdmin.from as (t: string) => any)("device_tokens")
           .select("id,token")
           .eq("user_id", notif.user_id);
         if (!tokens?.length) return Response.json({ sent: 0 });

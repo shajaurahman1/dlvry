@@ -23,7 +23,11 @@ const LocationPicker = lazy(() =>
   import("@/components/location-picker").then((m) => ({ default: m.LocationPicker })),
 );
 
-export const Route = createFileRoute("/_authenticated/onboarding")({ head: () => pageHead("Set up your profile", "Set up your shop or delivery partner profile on MOVEBY."), component: Onboarding });
+export const Route = createFileRoute("/_authenticated/onboarding")({
+  head: () =>
+    pageHead("Set up your profile", "Set up your shop or delivery partner profile on MOVEBY."),
+  component: Onboarding,
+});
 
 function Onboarding() {
   const { user, roles, refresh, loading } = useAuth();
