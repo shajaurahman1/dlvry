@@ -11,7 +11,7 @@
 
 <!-- LOVABLE:END -->
 
-- Never add `.env` to .gitignore — hosted builds read the publishable VITE_SUPABASE_* values from it; without it the app crashes with "Missing Supabase environment variable(s)".
+- Never add `.env` to .gitignore — hosted builds read the publishable VITE*SUPABASE*\* values from it; without it the app crashes with "Missing Supabase environment variable(s)".
 - Keep the existing Android package ID and callback scheme during display-name rebrands so installed-app upgrades and recovery links remain compatible.
 - Use one shared logo component and a brief root-level splash overlay so branding is consistent without delaying authentication or navigation.
 - Use Embla's vertical drag-free carousel and auto-scroll plugin for the story wheel so touch gestures, looping, and user-controlled playback stay smooth.

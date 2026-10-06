@@ -32,10 +32,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const applySession = async (s: Session | null) => {
     if (s?.user) {
       const fetchedRoles = await fetchRoles(s.user.id);
-      const { data: preference } = await supabase.from("account_preferences")
-        .select("active_role").eq("user_id", s.user.id).maybeSingle();
-      setActiveRole(preference && fetchedRoles.includes(preference.active_role)
-        ? preference.active_role : fetchedRoles.includes("shopkeeper") ? "shopkeeper" : fetchedRoles.includes("driver") ? "driver" : null);
+      const { data: preference } = await supabase
+        .from("account_preferences")
+        .select("active_role")
+        .eq("user_id", s.user.id)
+        .maybeSingle();
+      setActiveRole(
+        preference && fetchedRoles.includes(preference.active_role)
+          ? preference.active_role
+          : fetchedRoles.includes("shopkeeper")
+            ? "shopkeeper"
+            : fetchedRoles.includes("driver")
+              ? "driver"
+              : null,
+      );
       setSession(s);
       setUser(s.user);
       setRoles(fetchedRoles);
