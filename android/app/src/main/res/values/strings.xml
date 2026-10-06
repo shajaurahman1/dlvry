@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">MOVEBY</string>
     <string name="title_activity_main">MOVEBY</string>
-    <string name="package_name">in.dlvry.connect</string>
-    <string name="custom_url_scheme">in.dlvry.connect</string>
+    <string name="package_name">in.moveby.connect</string>
+    <string name="custom_url_scheme">in.moveby.connect</string>
 </resources>
