@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import AutoScroll from "embla-carousel-auto-scroll";
-import { ArrowDown, ArrowUp, Footprints, PackageCheck, Pause, Play, Wallet, PhoneCall, Store, MapPin } from "lucide-react";
+import { ArrowDown, ArrowUp, Footprints, PackageCheck, Pause, Play, Wallet, PhoneCall, Store, MapPin, Globe, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const stories = [
@@ -11,6 +11,8 @@ const stories = [
   { label: "Every step counts", title: "10,000 steps. ₹500 towards my goal.", body: "I completed my steps and made ₹500. If I keep going, I can save for my protein powder.", icon: Footprints, kind: "story" },
   { label: "03 / The doorstep", title: "Delivered. Paid. Done.", body: "The partner delivers to the customer and collects the order amount plus the delivery fee. Payments stay between them.", icon: MapPin, kind: "step" },
   { label: "Around the neighbourhood", title: "One more delivery. One step closer.", body: "A few local pickups fit around my day. Every delivery fee adds a little more to my savings.", icon: PackageCheck, kind: "story" },
+  { label: "Work from anywhere", title: "Your city finds you, wherever you are.", body: "MOVEBY runs on your phone's location. Open the app anywhere in the world and nearby requests come to you.", icon: Globe, kind: "story" },
+  { label: "No boss. No stress.", title: "Freedom at its peak.", body: "Go online when you want, pick the orders you like, log off whenever you feel like it. You work only if you want to.", icon: Sun, kind: "story" },
 ];
 
 export function StoryWheel() {
@@ -60,7 +62,7 @@ export function StoryWheel() {
               setPaused(!paused);
             }}>{paused ? <Play /> : <Pause />}</Button>
             <Button variant="outline" size="icon" aria-label="Next story" title="Next story" onClick={() => move("down")}><ArrowDown /></Button>
-            <span className="ml-3 text-xs tabular-nums text-muted-foreground">{String(selected + 1).padStart(2, "0")} / 06</span>
+            <span className="ml-3 text-xs tabular-nums text-muted-foreground">{String(selected + 1).padStart(2, "0")} / {String(stories.length).padStart(2, "0")}</span>
           </div>
           <p className="mt-6 max-w-sm text-xs leading-relaxed text-muted-foreground">Illustrative stories, not verified reviews. Earnings vary with orders, delivery fees, time and expenses.</p>
         </div>
