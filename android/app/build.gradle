@@ -7,7 +7,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "in.dlvry.connect"
+    namespace = "com.dlvry.moveby"
     compileSdk = rootProject.ext.compileSdkVersion
 
     signingConfigs {
@@ -22,7 +22,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "in.dlvry.connect"
+        applicationId "com.dlvry.moveby"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
