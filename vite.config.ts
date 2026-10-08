@@ -49,6 +49,28 @@ function prerenderServerEntryShim(): Plugin {
           "",
         ].join("\n"),
       );
+
+      // Nitro emits the function and static files but does not emit Vercel's required
+      // output manifest for this custom server entry. Without it every production path
+      // falls through to Vercel's platform 404, including the prerendered homepage.
+      if (process.env.VERCEL) {
+        const functionDir = resolve(process.cwd(), ".vercel/output/functions/__server.func");
+        writeFileSync(
+          resolve(functionDir, ".vc-config.json"),
+          JSON.stringify({ runtime: "nodejs24.x", handler: "server.js" }, null, 2),
+        );
+        writeFileSync(
+          resolve(process.cwd(), ".vercel/output/config.json"),
+          JSON.stringify(
+            {
+              version: 3,
+              routes: [{ handle: "filesystem" }, { src: "/(.*)", dest: "/__server" }],
+            },
+            null,
+            2,
+          ),
+        );
+      }
     },
   };
 }
