@@ -4,7 +4,11 @@ import { DlvryLogo } from "@/components/brand/logo";
 import { ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/terms")({
-  head: () => pageHead("Terms & Conditions", "Read the terms for shops and independent delivery partners using MOVEBY."),
+  head: () =>
+    pageHead(
+      "Terms & Conditions",
+      "Read the terms for shops and independent delivery partners using MOVEBY.",
+    ),
   component: TermsPage,
 });
 
@@ -119,8 +123,8 @@ function TermsPage() {
 
         <div className="mt-12 rounded-2xl border border-border bg-muted/40 p-6 text-xs text-muted-foreground">
           If any provision of these terms is found unenforceable, the remaining provisions remain in
-          full effect. MOVEBY may update these terms at any time; continued use of the platform after
-          an update constitutes acceptance of the updated terms.
+          full effect. MOVEBY may update these terms at any time; continued use of the platform
+          after an update constitutes acceptance of the updated terms.
         </div>
       </main>
     </div>
