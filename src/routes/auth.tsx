@@ -15,7 +15,12 @@ type SearchParams = {
   mode?: "signin" | "signup" | "forgot";
 };
 
-export const Route = createFileRoute("/auth")({ head: () => pageHead("Sign in", "Sign in or create your MOVEBY account to connect with local shops and delivery partners."),
+export const Route = createFileRoute("/auth")({
+  head: () =>
+    pageHead(
+      "Sign in",
+      "Sign in or create your MOVEBY account to connect with local shops and delivery partners.",
+    ),
   validateSearch: (s: Record<string, unknown>): SearchParams => ({
     role: s.role === "shopkeeper" || s.role === "driver" || s.role === "admin" ? s.role : undefined,
     mode: s.mode === "signup" ? "signup" : s.mode === "forgot" ? "forgot" : "signin",
@@ -65,7 +70,8 @@ function AuthPage() {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(em, {
         redirectTo: `${
-          window.location.origin.startsWith("http") && !window.location.hostname.includes("localhost")
+          window.location.origin.startsWith("http") &&
+          !window.location.hostname.includes("localhost")
             ? window.location.origin
             : "https://dlvry.lovable.app"
         }/auth-callback?type=recovery`,

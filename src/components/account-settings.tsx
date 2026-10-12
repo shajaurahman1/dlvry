@@ -19,25 +19,38 @@ export function AccountSettings({ currentRole }: { currentRole: "shopkeeper" | "
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Account role</h2>
-          <p className="text-sm text-muted-foreground">{currentRole === "driver" ? "Delivery partner" : "Shopkeeper"}</p>
+          <p className="text-sm text-muted-foreground">
+            {currentRole === "driver" ? "Delivery partner" : "Shopkeeper"}
+          </p>
         </div>
-        <Button type="button" variant="outline" disabled={busy} onClick={async () => {
-          setBusy(true);
-          try {
-            const result = await switchRole({ data: { role: target } });
-            if (result.needsSetup) {
-              await navigate({ to: "/onboarding", search: { role: target } });
-            } else {
-              await refresh();
-              await navigate({ to: target === "driver" ? "/driver" : "/shop" });
-              toast.success(`Switched to ${target === "driver" ? "delivery partner" : "shopkeeper"}`);
+        <Button
+          type="button"
+          variant="outline"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const result = await switchRole({ data: { role: target } });
+              if (result.needsSetup) {
+                await navigate({ to: "/onboarding", search: { role: target } });
+              } else {
+                await refresh();
+                await navigate({ to: target === "driver" ? "/driver" : "/shop" });
+                toast.success(
+                  `Switched to ${target === "driver" ? "delivery partner" : "shopkeeper"}`,
+                );
+              }
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Couldn't switch roles");
+            } finally {
+              setBusy(false);
             }
-          } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Couldn't switch roles");
-          } finally { setBusy(false); }
-        }}>
+          }}
+        >
           <ArrowLeftRight className="h-4 w-4" />
-          {busy ? "Switching…" : `Switch to ${target === "driver" ? "delivery partner" : "shopkeeper"}`}
+          {busy
+            ? "Switching…"
+            : `Switch to ${target === "driver" ? "delivery partner" : "shopkeeper"}`}
         </Button>
       </div>
       <NotificationSettings />
