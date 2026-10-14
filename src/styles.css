@@ -136,24 +136,153 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-.moveby-logo img { transition: transform 350ms ease; }
-a:hover .moveby-logo img, button:hover .moveby-logo img { transform: translateY(-3px) rotate(-2deg) scale(1.04); }
-a:active .moveby-logo img, button:active .moveby-logo img { transform: scale(0.96); }
-.home-logo { font-size: 64px; max-width: 100%; }
-.moveby-splash { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--background); animation: splash-appear 450ms ease both; }
-.splash-logo-button { height: auto; padding: 20px; max-width: 90%; background: transparent; }
-.splash-logo-button .moveby-logo { animation: logo-arrive 900ms cubic-bezier(.16,1,.3,1) both; }
-.splash-progress { width: 100px; height: 3px; overflow: hidden; border-radius: 2px; background: var(--border); }
-.splash-progress span { display: block; width: 100%; height: 100%; background: var(--primary); transform-origin: left; animation: splash-fill 1400ms ease both; }
-.story-wheel { height: 520px; overflow: hidden; cursor: grab; touch-action: pan-x pinch-zoom; perspective: 1000px; mask-image: linear-gradient(to bottom, transparent, var(--foreground) 15%, var(--foreground) 85%, transparent); }
-.story-wheel:active { cursor: grabbing; }
-.story-wheel:focus-visible { outline: 2px solid var(--ring); outline-offset: 5px; }
-.story-track { display: flex; flex-direction: column; height: 100%; }
-.story-slide { flex: 0 0 240px; min-height: 0; padding: 10px 12px; }
-.story-card { height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); box-shadow: var(--shadow-soft); }
-.story-card-personal { background: color-mix(in oklch, var(--primary) 6%, var(--card)); border-color: color-mix(in oklch, var(--primary) 25%, var(--border)); }
-@keyframes logo-arrive { from { opacity: 0; transform: translateY(16px) scale(.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes splash-appear { from { opacity: 0; } to { opacity: 1; } }
-@keyframes splash-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@media (max-width: 640px) { .home-logo { font-size: 48px; } .story-wheel { height: 450px; } .story-slide { flex-basis: 250px; padding-inline: 2px; } .story-card { padding: 22px; } .splash-logo-button .moveby-logo { font-size: 56px; } }
-@media (prefers-reduced-motion: reduce) { .moveby-logo img { transition: none; } .moveby-splash, .splash-logo-button .moveby-logo, .splash-progress span { animation: none; } }
+.moveby-logo img {
+  transition: transform 350ms ease;
+}
+a:hover .moveby-logo img,
+button:hover .moveby-logo img {
+  transform: translateY(-3px) rotate(-2deg) scale(1.04);
+}
+a:active .moveby-logo img,
+button:active .moveby-logo img {
+  transform: scale(0.96);
+}
+.home-logo {
+  font-size: 64px;
+  max-width: 100%;
+}
+.moveby-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--background);
+  animation: splash-appear 450ms ease both;
+}
+.splash-logo-button {
+  height: auto;
+  padding: 20px;
+  max-width: 90%;
+  background: transparent;
+}
+.splash-logo-button .moveby-logo {
+  animation: logo-arrive 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.splash-progress {
+  width: 100px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--border);
+}
+.splash-progress span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary);
+  transform-origin: left;
+  animation: splash-fill 1400ms ease both;
+}
+.story-wheel {
+  height: 520px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: pan-x pinch-zoom;
+  perspective: 1000px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    var(--foreground) 15%,
+    var(--foreground) 85%,
+    transparent
+  );
+}
+.story-wheel:active {
+  cursor: grabbing;
+}
+.story-wheel:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 5px;
+}
+.story-track {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.story-slide {
+  flex: 0 0 240px;
+  min-height: 0;
+  padding: 10px 12px;
+}
+.story-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: var(--shadow-soft);
+}
+.story-card-personal {
+  background: color-mix(in oklch, var(--primary) 6%, var(--card));
+  border-color: color-mix(in oklch, var(--primary) 25%, var(--border));
+}
+@keyframes logo-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes splash-appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes splash-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@media (max-width: 640px) {
+  .home-logo {
+    font-size: 48px;
+  }
+  .story-wheel {
+    height: 450px;
+  }
+  .story-slide {
+    flex-basis: 250px;
+    padding-inline: 2px;
+  }
+  .story-card {
+    padding: 22px;
+  }
+  .splash-logo-button .moveby-logo {
+    font-size: 56px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .moveby-logo img {
+    transition: none;
+  }
+  .moveby-splash,
+  .splash-logo-button .moveby-logo,
+  .splash-progress span {
+    animation: none;
+  }
+}

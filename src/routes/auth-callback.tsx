@@ -9,7 +9,12 @@ import { Label } from "@/components/ui/label";
 import { DlvryLogo } from "@/components/brand/logo";
 import { Link } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/auth-callback")({ head: () => pageHead("Account recovery", "Complete sign-in or reset your MOVEBY password and continue in the app."),
+export const Route = createFileRoute("/auth-callback")({
+  head: () =>
+    pageHead(
+      "Account recovery",
+      "Complete sign-in or reset your MOVEBY password and continue in the app.",
+    ),
   component: AuthCallbackPage,
 });
 
@@ -51,9 +56,7 @@ function AuthCallbackPage() {
       const accessToken = hashParams.get("access_token");
       const refreshToken = hashParams.get("refresh_token");
       const isRecoveryFlow =
-        type === "recovery" ||
-        url.hash.includes("type=recovery") ||
-        url.href.includes("recovery");
+        type === "recovery" || url.hash.includes("type=recovery") || url.href.includes("recovery");
 
       if (code) {
         // Exchange the recovery/PKCE code on all platforms (web + native)

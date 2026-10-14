@@ -1,4 +1,3 @@
-
 import { readFileSync } from "node:fs";
 import { createClient } from "@libsql/client";
 
@@ -11,10 +10,7 @@ if (!url || !authToken) {
 
 const db = createClient({ url, authToken });
 
-const schema = readFileSync(
-  new URL("../turso/schema.sql", import.meta.url),
-  "utf8"
-);
+const schema = readFileSync(new URL("../turso/schema.sql", import.meta.url), "utf8");
 
 // Split statements in our schema file.
 // This works because the file contains no SQL triggers
@@ -26,7 +22,7 @@ const statements = schema
       .split("\n")
       .filter((line) => !line.trim().startsWith("--"))
       .join("\n")
-      .trim()
+      .trim(),
   )
   .filter(Boolean);
 

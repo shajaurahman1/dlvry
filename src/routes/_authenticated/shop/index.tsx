@@ -44,7 +44,10 @@ const LocationPicker = lazy(() =>
   import("@/components/location-picker").then((m) => ({ default: m.LocationPicker })),
 );
 
-export const Route = createFileRoute("/_authenticated/shop/")({ head: () => pageHead("Shop dispatch", "Manage shop pickup requests and deliveries on MOVEBY."), component: ShopDashboard });
+export const Route = createFileRoute("/_authenticated/shop/")({
+  head: () => pageHead("Shop dispatch", "Manage shop pickup requests and deliveries on MOVEBY."),
+  component: ShopDashboard,
+});
 
 type Order = Tables<"orders">;
 type Shop = Tables<"shopkeepers">;
