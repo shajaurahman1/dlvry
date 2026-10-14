@@ -1,4 +1,5 @@
 # moveby updates
+
 - [x] Use the supplied transparent logo, replace visible DLVRY branding, and update splash screens and favicon.
 - [x] Add a slowly moving, draggable home story wheel with delivery steps and clearly marked illustrative stories.
 - [x] Rebrand visible pages and Android app label using the supplied logo; add support contacts.

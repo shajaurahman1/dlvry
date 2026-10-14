@@ -7,7 +7,14 @@ import { StoryWheel } from "@/components/story-wheel";
 import { Button } from "@/components/ui/button";
 import { pageHead } from "@/lib/metadata";
 
-export const Route = createFileRoute("/")({ head: () => pageHead("Local delivery, connected", "MOVEBY connects local shops with nearby delivery partners. Customer calls, local pickups and direct doorstep payments."), component: Landing });
+export const Route = createFileRoute("/")({
+  head: () =>
+    pageHead(
+      "Local delivery, connected",
+      "MOVEBY connects local shops with nearby delivery partners. Customer calls, local pickups and direct doorstep payments.",
+    ),
+  component: Landing,
+});
 
 function Landing() {
   const { user, roles, loading } = useAuth();
@@ -34,14 +41,18 @@ function Landing() {
     <div className="min-h-screen bg-background">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <DlvryLogo className="text-2xl" />
-        <Button asChild variant="outline" className="rounded-full"><Link to="/auth">
-          Sign in
-        </Link></Button>
+        <Button asChild variant="outline" className="rounded-full">
+          <Link to="/auth">Sign in</Link>
+        </Button>
       </header>
 
       <main className="mx-auto max-w-6xl px-6">
         <section className="pt-10 pb-14 text-center md:pt-12 md:pb-16">
-          <h1 className="mb-7 flex justify-center"><Link to="/" aria-label="MOVEBY home"><DlvryLogo className="home-logo" /></Link></h1>
+          <h1 className="mb-7 flex justify-center">
+            <Link to="/" aria-label="MOVEBY home">
+              <DlvryLogo className="home-logo" />
+            </Link>
+          </h1>
           <p className="font-serif-italic text-lg text-muted-foreground">
             Hyperlocal, humanly done.
           </p>
@@ -53,18 +64,16 @@ function Landing() {
             Collect payment with delivery charges at the doorstep.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button asChild className="h-auto rounded-full px-6 py-3"><Link
-              to="/auth"
-              search={{ role: "shopkeeper" }}
-            >
-              I'm a business partner <ArrowRight className="h-4 w-4" />
-            </Link></Button>
-            <Button asChild variant="outline" className="h-auto rounded-full px-6 py-3"><Link
-              to="/auth"
-              search={{ role: "driver" }}
-            >
-              I'm a delivery partner
-            </Link></Button>
+            <Button asChild className="h-auto rounded-full px-6 py-3">
+              <Link to="/auth" search={{ role: "shopkeeper" }}>
+                I'm a business partner <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-auto rounded-full px-6 py-3">
+              <Link to="/auth" search={{ role: "driver" }}>
+                I'm a delivery partner
+              </Link>
+            </Button>
           </div>
         </section>
 
@@ -79,9 +88,11 @@ function Landing() {
             MOVEBY is only a delivery connector. Money moves directly between the driver, the shop,
             and the customer.
           </p>
-          <Button asChild className="mt-2 h-auto rounded-full px-6 py-3"><Link to="/auth">
-            Get started <ArrowRight className="h-4 w-4" />
-          </Link></Button>
+          <Button asChild className="mt-2 h-auto rounded-full px-6 py-3">
+            <Link to="/auth">
+              Get started <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
         </section>
       </main>
 

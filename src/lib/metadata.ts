@@ -1,10 +1,12 @@
 export function pageHead(title: string, description: string) {
-  return { meta: [
-    { title: `${title} — MOVEBY` },
-    { name: "description", content: description },
-    { property: "og:title", content: `${title} — MOVEBY` },
-    { property: "og:description", content: description },
-    { property: "og:type", content: "website" },
-    { name: "twitter:card", content: "summary" },
-  ] };
+  return {
+    meta: [
+      { title: `${title} — MOVEBY` },
+      { name: "description", content: description },
+      { property: "og:title", content: `${title} — MOVEBY` },
+      { property: "og:description", content: description },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  };
 }

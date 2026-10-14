@@ -218,8 +218,8 @@ export function useLiveLocation(watch = true): LocationState {
   useEffect(() => {
     let cancelled = false;
     let clearWatch: (() => void) | undefined;
-    let poll: ReturnType<typeof setInterval> | undefined;
-    let searchTimer: ReturnType<typeof setTimeout> | undefined;
+    const poll: ReturnType<typeof setInterval> | undefined;
+    const searchTimer: ReturnType<typeof setTimeout> | undefined;
 
     const accept = (fix: FixResult, fromCache = false) => {
       if (cancelled) return;

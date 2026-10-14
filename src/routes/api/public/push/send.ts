@@ -28,7 +28,7 @@ export const Route = createFileRoute("/api/public/push/send")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        const { data: notif } = await (supabaseAdmin.from as (t: string) => any)(
+        const { data: notif } = await (supabaseAdmin.from as (t: string) => unknown)(
           "notifications",
         )
           .select("id,user_id,title,body,order_id")
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/public/push/send")({
           .single();
         if (!notif) return new Response("Not found", { status: 404 });
 
-        const { data: tokens } = await (supabaseAdmin.from as (t: string) => any)(
+        const { data: tokens } = await (supabaseAdmin.from as (t: string) => unknown)(
           "device_tokens",
         )
           .select("id,token")
@@ -74,7 +74,7 @@ export const Route = createFileRoute("/api/public/push/send")({
           console.error(`FCM send failed [${res.status}]: ${errText}`);
           // Stale token — remove it instead of retrying forever.
           if (res.status === 404 || res.status === 400) {
-            await (supabaseAdmin.from as (t: string) => any)("device_tokens")
+            await (supabaseAdmin.from as (t: string) => unknown)("device_tokens")
               .delete()
               .eq("id", t.id);
           }
