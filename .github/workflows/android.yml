@@ -40,31 +40,49 @@ jobs:
         run: npm run build
 
       - name: Sync Capacitor
-        run: npx cap sync
-
-      - name: Build APK (Debug)
-        working-directory: ./android
-        run: ./gradlew assembleDebug
+        run: |
+          npx cap sync android
+          test -f .output/public/index.html
+          test -f android/app/src/main/assets/public/index.html
 
       - name: Configure Android signing
         working-directory: ./android
+        env:
+          PLAY_CONSOLE_KEYSTORE: ${{ secrets.PLAY_CONSOLE_KEYSTORE }}
+          PLAY_CONSOLE_KEYSTORE_PASSWORD: ${{ secrets.PLAY_CONSOLE_KEYSTORE_PASSWORD }}
+          PLAY_CONSOLE_KEY_ALIAS: ${{ secrets.PLAY_CONSOLE_KEY_ALIAS }}
+          PLAY_CONSOLE_KEY_PASSWORD: ${{ secrets.PLAY_CONSOLE_KEY_PASSWORD }}
         run: |
-          if [ -n "${{ secrets.PLAY_CONSOLE_KEYSTORE }}" ]; then
-            echo "Using keystore from secrets"
-            echo "${{ secrets.PLAY_CONSOLE_KEYSTORE }}" | base64 --decode > release.keystore
-            echo "storePassword=${{ secrets.PLAY_CONSOLE_KEYSTORE_PASSWORD }}" > keystore.properties
-            echo "keyPassword=${{ secrets.PLAY_CONSOLE_KEY_PASSWORD }}" >> keystore.properties
-            echo "keyAlias=${{ secrets.PLAY_CONSOLE_KEY_ALIAS }}" >> keystore.properties
-            echo "storeFile=../release.keystore" >> keystore.properties
-          else
-            echo "ERROR: Required GitHub Action secrets are missing. Do not generate a mock keystore."
-            echo "Please set PLAY_CONSOLE_KEYSTORE, PLAY_CONSOLE_KEYSTORE_PASSWORD, PLAY_CONSOLE_KEY_ALIAS, and PLAY_CONSOLE_KEY_PASSWORD in GitHub Settings."
-            exit 1
-          fi
+          set -euo pipefail
+          required=(PLAY_CONSOLE_KEYSTORE PLAY_CONSOLE_KEYSTORE_PASSWORD PLAY_CONSOLE_KEY_ALIAS PLAY_CONSOLE_KEY_PASSWORD)
+          for name in "${required[@]}"; do
+            if [ -z "${!name}" ]; then
+              echo "Missing GitHub Actions secret: ${name}"
+              echo "Configure PLAY_CONSOLE_KEYSTORE, PLAY_CONSOLE_KEYSTORE_PASSWORD, PLAY_CONSOLE_KEY_ALIAS, and PLAY_CONSOLE_KEY_PASSWORD before running a release build."
+              exit 1
+            fi
+          done
+          printf '%s' "$PLAY_CONSOLE_KEYSTORE" | base64 --decode > release.keystore
+          cat > keystore.properties <<EOF
+          storePassword=$PLAY_CONSOLE_KEYSTORE_PASSWORD
+          keyPassword=$PLAY_CONSOLE_KEY_PASSWORD
+          keyAlias=$PLAY_CONSOLE_KEY_ALIAS
+          storeFile=../release.keystore
+          EOF
+          chmod 600 release.keystore keystore.properties
+
+      - name: Build APK (Debug)
+        working-directory: ./android
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Build AAB (Release)
         working-directory: ./android
-        run: ./gradlew bundleRelease
+        run: ./gradlew bundleRelease --no-daemon
+
+      - name: Verify signed AAB
+        run: |
+          test -s android/app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs android/app/build/outputs/bundle/release/app-release.aab >/dev/null
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
