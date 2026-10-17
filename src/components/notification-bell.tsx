@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { listMyNotifications, markAllNotificationsRead } from "@/lib/misc.functions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { timeAgo } from "@/lib/orders";
-import type { Tables } from "@/integrations/supabase/types";
 
-type Notification = Tables<"notifications">;
+type Notification = {
+  id: string;
+  title: string;
+  body: string;
+  read: number | boolean;
+  created_at: string;
+};
 
 export function NotificationBell() {
   const { user } = useAuth();
@@ -15,34 +20,16 @@ export function NotificationBell() {
 
   const load = async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    setItems(data ?? []);
+    const data = await listMyNotifications();
+    setItems(data as unknown as Notification[]);
   };
 
   useEffect(() => {
     if (!user) return;
     void load();
-    const ch = supabase
-      .channel(`notif-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => load(),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
+    // No realtime push on Turso — poll instead.
+    const interval = setInterval(() => void load(), 20_000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -50,11 +37,7 @@ export function NotificationBell() {
 
   const markAllRead = async () => {
     if (!user || unread === 0) return;
-    await supabase
-      .from("notifications")
-      .update({ read: true })
-      .eq("user_id", user.id)
-      .eq("read", false);
+    await markAllNotificationsRead();
     load();
   };
 

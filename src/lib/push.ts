@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { isNativeApp } from "@/lib/platform";
+import { registerDeviceToken, unregisterDeviceToken } from "@/lib/misc.functions";
 
 export type PushStatus = "unsupported" | "prompt" | "denied" | "enabled" | "error";
 let started = false;
@@ -11,10 +12,7 @@ let completeRegistration: ((status: PushStatus) => void) | null = null;
 async function saveToken(token: string) {
   const { data, error: authError } = await supabase.auth.getUser();
   if (authError || !data.user) throw new Error("Sign in before enabling notifications.");
-  const { error } = await supabase.from("device_tokens").upsert({
-    user_id: data.user.id, token, platform: "android", updated_at: new Date().toISOString(),
-  }, { onConflict: "token" });
-  if (error) throw new Error(error.message);
+  await registerDeviceToken({ data: { token, platform: "android" } });
   currentToken = token;
 }
 
@@ -78,8 +76,10 @@ export async function unregisterDevice() {
   if (!currentToken) return;
   const { data } = await supabase.auth.getUser();
   if (!data.user) { currentToken = null; return; }
-  const { error } = await supabase.from("device_tokens").delete()
-    .eq("user_id", data.user.id).eq("token", currentToken);
-  if (error) throw new Error("Couldn't remove this phone's notifications. Please try signing out again.");
+  try {
+    await unregisterDeviceToken({ data: { token: currentToken } });
+  } catch {
+    throw new Error("Couldn't remove this phone's notifications. Please try signing out again.");
+  }
   currentToken = null;
 }

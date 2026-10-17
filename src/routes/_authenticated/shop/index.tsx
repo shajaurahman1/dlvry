@@ -2,7 +2,15 @@ import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
+import { getMyShop } from "@/lib/shop.functions";
+import {
+  listShopOrders,
+  createOrder as createOrderFn,
+  confirmPayment,
+  cancelOrder,
+  resendOrder,
+} from "@/lib/orders.functions";
+import { RoleSwitchButton } from "@/components/role-switch-button";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +45,6 @@ import {
   TERMINAL_STATUSES,
 } from "@/lib/orders";
 import { toast } from "sonner";
-import type { Tables } from "@/integrations/supabase/types";
 import type { PickedLocation } from "@/components/location-picker";
 
 const LocationPicker = lazy(() =>
@@ -46,8 +53,15 @@ const LocationPicker = lazy(() =>
 
 export const Route = createFileRoute("/_authenticated/shop/")({ head: () => pageHead("Shop dispatch", "Manage shop pickup requests and deliveries on MOVEBY."), component: ShopDashboard });
 
-type Order = Tables<"orders">;
-type Shop = Tables<"shopkeepers">;
+type Order = Awaited<ReturnType<typeof listShopOrders>>[number] & {
+  id: string; status: string; created_at: string; expires_at: string | null; delivery_otp: string | null;
+  order_description: string; customer_name: string; customer_phone: string; payment_method: string;
+  total_amount: number; order_amount: number; delivery_charge: number; cancel_reason?: string | null;
+};
+type Shop = NonNullable<Awaited<ReturnType<typeof getMyShop>>> & {
+  id: string; shop_name: string; shop_category: string; shop_photo_url: string | null;
+  approval_status: string; latitude: number; longitude: number;
+};
 type Filter = "all" | "today" | "week" | "month" | "pending" | "active" | "completed" | "cancelled";
 
 function ShopDashboard() {
@@ -68,33 +82,18 @@ function ShopDashboard() {
 
   const load = async () => {
     if (!user) return;
-    const [{ data: s }, { data: o }] = await Promise.all([
-      supabase.from("shopkeepers").select("*").eq("id", user.id).maybeSingle(),
-      supabase
-        .from("orders")
-        .select("*")
-        .eq("shop_id", user.id)
-        .order("created_at", { ascending: false }),
-    ]);
-    setShop(s);
-    setOrders(o ?? []);
+    const [s, o] = await Promise.all([getMyShop(), listShopOrders()]);
+    setShop(s as Shop | null);
+    setOrders((o ?? []) as unknown as Order[]);
     setDataLoading(false);
   };
 
   useEffect(() => {
-    void load();
     if (!user) return;
-    const ch = supabase
-      .channel("shop-orders")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders", filter: `shop_id=eq.${user.id}` },
-        () => load(),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
+    void load();
+    // Turso has no realtime push; poll for new/updated orders instead.
+    const interval = setInterval(() => void load(), 15_000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -172,15 +171,18 @@ function ShopDashboard() {
       subtitle={shop.shop_name}
       title="Dispatch"
       actions={
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-11 w-11 rounded-full"
-          onClick={() => navigate({ to: "/shop/settings" })}
-          aria-label="Edit shop"
-        >
-          <Settings className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <RoleSwitchButton targetRole="driver" />
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-11 w-11 rounded-full"
+            onClick={() => navigate({ to: "/shop/settings" })}
+            aria-label="Edit shop"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+        </div>
       }
     >
       {/* Shop header card */}
@@ -318,23 +320,44 @@ function Stat({
 
 function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void }) {
   const [busy, setBusy] = useState(false);
-  const update = async (patch: Partial<Order>) => {
+
+  const confirm = async () => {
     setBusy(true);
-    const { error } = await supabase.from("orders").update(patch).eq("id", order.id);
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Updated");
-    onChange();
+    try {
+      await confirmPayment({ data: { orderId: order.id } });
+      toast.success("Updated");
+      onChange();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancel = async () => {
+    setBusy(true);
+    try {
+      await cancelOrder({ data: { orderId: order.id, reason: "Cancelled by shop" } });
+      toast.success("Request cancelled");
+      onChange();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to cancel");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const resend = async () => {
     setBusy(true);
-    const { data, error } = await supabase.rpc("resend_order", { p_order_id: order.id });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    if (!(data as { ok: boolean })?.ok) return toast.error("Could not resend this request.");
-    toast.success("Request sent again to nearby partners");
-    onChange();
+    try {
+      await resendOrder({ data: { orderId: order.id } });
+      toast.success("Request sent again to nearby partners");
+      onChange();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not resend this request.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const searching = SEARCHING_STATUSES.includes(order.status);
@@ -343,13 +366,8 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
 
   const nextAction = (() => {
     if (order.status === "arrived_at_shop" || order.status === "reached_shop")
-      return { label: "Confirm payment received", patch: { status: "payment_received" as const } };
-    if (searching)
-      return {
-        label: "Cancel request",
-        patch: { status: "cancelled" as const, cancel_reason: "Cancelled by shop" },
-        danger: true,
-      };
+      return { label: "Confirm payment received", action: confirm };
+    if (searching) return { label: "Cancel request", action: cancel, danger: true };
     return null;
   })();
 
@@ -409,7 +427,7 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
         <Button
           disabled={busy}
           variant={nextAction.danger ? "outline" : "default"}
-          onClick={() => update(nextAction.patch)}
+          onClick={nextAction.action}
           className="mt-4 h-10 w-full rounded-full text-sm font-semibold"
         >
           {nextAction.label}
@@ -438,26 +456,33 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
     e.preventDefault();
     if (!f.customer_name || !f.customer_phone || !f.customer_address)
       return toast.error("Fill all required fields");
+    if ((Number(f.delivery_charge) || 0) <= 10)
+      return toast.error("Delivery charge must be greater than ₹10");
     setBusy(true);
-    const { error } = await supabase.from("orders").insert({
-      shop_id: shop.id,
-      customer_name: f.customer_name,
-      customer_phone: f.customer_phone,
-      customer_address: f.customer_address,
-      customer_lat: customerLoc?.lat ?? null,
-      customer_lng: customerLoc?.lng ?? null,
-      order_description: f.order_description,
-      order_amount: Number(f.order_amount) || 0,
-      delivery_charge: Number(f.delivery_charge) || 0,
-      payment_method: f.payment_method,
-      pickup_notes: f.pickup_notes,
-      pickup_lat: shop.latitude,
-      pickup_lng: shop.longitude,
-    });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Searching for a nearby delivery partner…");
-    onCreated();
+    try {
+      await createOrderFn({
+        data: {
+          customer_name: f.customer_name,
+          customer_phone: f.customer_phone,
+          customer_address: f.customer_address,
+          customer_lat: customerLoc?.lat ?? undefined,
+          customer_lng: customerLoc?.lng ?? undefined,
+          order_description: f.order_description,
+          order_amount: Number(f.order_amount) || 0,
+          delivery_charge: Number(f.delivery_charge) || 0,
+          payment_method: f.payment_method as "cash" | "upi",
+          pickup_notes: f.pickup_notes,
+          pickup_lat: shop.latitude,
+          pickup_lng: shop.longitude,
+        },
+      });
+      toast.success("Searching for a nearby delivery partner…");
+      onCreated();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create order");
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <form onSubmit={submit} className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">

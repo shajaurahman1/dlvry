@@ -2,7 +2,15 @@ import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
+import { getMyDriver, setDriverLocation, setDriverOnline, setSearchRadius } from "@/lib/driver.functions";
+import {
+  getNearbyOrders,
+  listDriverOrders,
+  acceptOrder,
+  advanceOrder,
+  expireStaleOrders,
+} from "@/lib/orders.functions";
+import { RoleSwitchButton } from "@/components/role-switch-button";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,12 +30,21 @@ import {
 } from "lucide-react";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo, minutesLeft } from "@/lib/orders";
 import { toast } from "sonner";
-import type { Tables } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/driver/")({ head: () => pageHead("Delivery dashboard", "Find nearby pickups and manage your MOVEBY deliveries and earnings."), component: DriverDashboard });
 
-type Driver = Tables<"drivers">;
-type Order = Tables<"orders">;
+type Driver = {
+  id: string; is_online: number | boolean; is_busy: number | boolean; search_radius_km: number;
+  available_cash: number; approval_status: string; verification_status: string; verification_notes: string | null;
+};
+type Order = {
+  id: string; status: string; created_at: string; delivered_at: string | null; delivery_charge: number;
+  order_amount: number; total_amount: number; order_description: string; shop_id: string;
+  pickup_lat: number | null; pickup_lng: number | null; pickup_notes: string | null;
+  customer_name: string; customer_phone: string; customer_address: string;
+  customer_lat: number | null; customer_lng: number | null; payment_method: string;
+  shop_name?: string; shop_phone?: string | null; shop_address?: string;
+};
 
 interface NearbyOrder {
   id: string;
@@ -61,8 +78,8 @@ function DriverDashboard() {
 
   const loadDriver = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase.from("drivers").select("*").eq("id", user.id).maybeSingle();
-    setDriver(data);
+    const data = await getMyDriver();
+    setDriver(data as Driver | null);
   }, [user]);
 
   useEffect(() => {
@@ -79,8 +96,11 @@ function DriverDashboard() {
   const pushLocation = useCallback(async () => {
     const c = coordsRef.current;
     if (!c || !user) return;
-    const { error } = await supabase.rpc("set_driver_location", { p_lat: c.lat, p_lng: c.lng });
-    if (error) console.error("[dlvry] failed to save driver location", error.message);
+    try {
+      await setDriverLocation({ data: { lat: c.lat, lng: c.lng } });
+    } catch (err) {
+      console.error("[dlvry] failed to save driver location", err);
+    }
   }, [user]);
 
   // Persist the driver's live position whenever it changes (rounded to ~10m).
@@ -91,29 +111,21 @@ function DriverDashboard() {
 
   const loadOrders = useCallback(async () => {
     if (!user) return;
-    void supabase.rpc("expire_stale_orders");
+    void expireStaleOrders().catch(() => {});
     const c = coordsRef.current;
-    const [{ data: rpc }, { data: mine }, { data: hist }] = await Promise.all([
-      c
-        ? supabase.rpc("nearby_orders", { driver_lat: c.lat, driver_lng: c.lng })
-        : Promise.resolve({ data: [] as NearbyOrder[] }),
-      supabase
-        .from("orders")
-        .select("*")
-        .eq("driver_id", user.id)
-        .not("status", "in", "(delivered,cancelled)")
-        .order("created_at", { ascending: false })
-        .limit(1),
-      supabase
-        .from("orders")
-        .select("*")
-        .eq("driver_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50),
+    const [nearbyRes, mine] = await Promise.all([
+      c ? getNearbyOrders({ data: { lat: c.lat, lng: c.lng } }) : Promise.resolve([]),
+      listDriverOrders(),
     ]);
-    setNearby((rpc as NearbyOrder[]) ?? []);
-    setActive((mine?.[0] as Order) ?? null);
-    setHistory((hist as Order[]) ?? []);
+    setNearby(
+      (nearbyRes as unknown as NearbyOrder[]).map((o) => ({
+        ...o,
+        pickup_address: (o as unknown as { shop_address?: string }).shop_address ?? "",
+      })),
+    );
+    const mineOrders = mine as unknown as Order[];
+    setActive(mineOrders.find((o) => o.status !== "delivered" && o.status !== "cancelled") ?? null);
+    setHistory(mineOrders.slice(0, 50));
   }, [user]);
 
   const prevNearbyIdsRef = useRef<Set<string>>(new Set());
@@ -121,13 +133,7 @@ function DriverDashboard() {
   useEffect(() => {
     if (!user) return;
     void loadOrders();
-    const ch = supabase
-      .channel("driver-orders")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
-        void loadOrders();
-      })
-      .subscribe();
-    // Poll as the source of truth — realtime can't see unassigned orders under RLS.
+    // No realtime push on Turso — poll is the source of truth.
     const iv = setInterval(() => {
       void pushLocation();
       void loadOrders();
@@ -140,7 +146,6 @@ function DriverDashboard() {
     };
     document.addEventListener("visibilitychange", onResume);
     return () => {
-      supabase.removeChannel(ch);
       clearInterval(iv);
       document.removeEventListener("visibilitychange", onResume);
     };
@@ -281,21 +286,19 @@ function DriverDashboard() {
           </p>
         </div>
         <Switch
-          checked={driver.is_online}
+          checked={Boolean(driver.is_online)}
           aria-label="Go online"
           onCheckedChange={async (on) => {
             setDriver({ ...driver, is_online: on });
-            const { error } = await supabase
-              .from("drivers")
-              .update({ is_online: on })
-              .eq("id", driver.id);
-            if (error) {
+            try {
+              await setDriverOnline({ data: { isOnline: on } });
+              toast.success(on ? "You're online" : "You're offline");
+              if (on) await pushLocation();
+              void loadOrders();
+            } catch (err) {
               setDriver({ ...driver, is_online: !on });
-              return toast.error(error.message);
+              toast.error(err instanceof Error ? err.message : "Failed to update");
             }
-            toast.success(on ? "You're online" : "You're offline");
-            if (on) await pushLocation();
-            void loadOrders();
           }}
         />
       </div>
@@ -316,16 +319,14 @@ function DriverDashboard() {
               onClick={async () => {
                 const prev = driver.search_radius_km;
                 setDriver({ ...driver, search_radius_km: km });
-                const { error } = await supabase
-                  .from("drivers")
-                  .update({ search_radius_km: km })
-                  .eq("id", driver.id);
-                if (error) {
+                try {
+                  await setSearchRadius({ data: { km } });
+                  toast.success(`Alerts limited to ${km} km`);
+                  void loadOrders();
+                } catch (err) {
                   setDriver({ ...driver, search_radius_km: prev });
-                  return toast.error(error.message);
+                  toast.error(err instanceof Error ? err.message : "Failed to update");
                 }
-                toast.success(`Alerts limited to ${km} km`);
-                void loadOrders();
               }}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 Number(driver.search_radius_km) === km
@@ -339,7 +340,8 @@ function DriverDashboard() {
         </div>
       </div>
 
-      <div className="mb-6 flex justify-end">
+      <div className="mb-6 flex flex-wrap justify-end gap-2">
+        <RoleSwitchButton targetRole="shopkeeper" />
         <Button
           variant="outline"
           className="rounded-full"
@@ -488,28 +490,15 @@ function NearbyCard({
   const [busy, setBusy] = useState(false);
   const accept = async () => {
     setBusy(true);
-    const { data, error } = await supabase.rpc("accept_order", {
-      p_order_id: order.id,
-      p_lat: coords.lat,
-      p_lng: coords.lng,
-    });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    const res = data as { ok: boolean; error?: string };
-    if (!res?.ok) {
-      const msg: Record<string, string> = {
-        already_taken: "Another delivery partner accepted this first.",
-        expired: "This request has expired.",
-        too_far: "You've moved out of range for this pickup.",
-        not_verified: "Your account is still awaiting verification.",
-        busy: "Finish your current delivery first.",
-      };
-      toast.error(msg[res?.error ?? ""] ?? "Could not accept this order.");
+    try {
+      await acceptOrder({ data: { orderId: order.id, lat: coords.lat, lng: coords.lng } });
+      toast.success("Order accepted");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not accept this order.");
+    } finally {
+      setBusy(false);
       onAccepted();
-      return;
     }
-    toast.success("Order accepted");
-    onAccepted();
   };
   const mins = minutesLeft(order.expires_at);
   return (
@@ -550,15 +539,13 @@ function NearbyCard({
 }
 
 function ActiveOrder({ order, onChange }: { order: Order; onChange: () => void }) {
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const [busy, setBusy] = useState(false);
   const [otp, setOtp] = useState("");
-  const [shop, setShop] = useState<{
-    shop_name: string;
-    address: string;
-    phone: string | null;
-  } | null>(null);
-  const [driverName, setDriverName] = useState<string>("");
+  const shop = order.shop_name
+    ? { shop_name: order.shop_name, address: order.shop_address ?? "", phone: order.shop_phone ?? null }
+    : null;
+  const driverName = (profile?.full_name as string | undefined) || "Delivery partner";
   const paymentReceived = [
     "payment_received",
     "picked_up",
@@ -568,53 +555,22 @@ function ActiveOrder({ order, onChange }: { order: Order; onChange: () => void }
     "delivered",
   ].includes(order.status);
 
-  useEffect(() => {
-    void supabase
-      .from("shopkeepers")
-      .select("shop_name,address,shop_phone")
-      .eq("id", order.shop_id)
-      .maybeSingle()
-      .then(async ({ data }) => {
-        if (!data) return;
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("phone")
-          .eq("id", order.shop_id)
-          .maybeSingle();
-        setShop({
-          shop_name: data.shop_name,
-          address: data.address,
-          phone: data.shop_phone ?? prof?.phone ?? null,
-        });
-      });
-    if (user) {
-      void supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .maybeSingle()
-        .then(({ data }) => setDriverName(data?.full_name ?? "Delivery partner"));
-    }
-  }, [order.shop_id, user]);
-
   const advance = async (status: string, code?: string) => {
     setBusy(true);
-    const { data, error } = await supabase.rpc("advance_order", {
-      p_order_id: order.id,
-      p_status: status as Order["status"],
-      p_otp: code ?? undefined,
-    });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    const res = data as { ok: boolean; error?: string };
-    if (!res?.ok) {
-      return toast.error(
-        res?.error === "bad_otp"
+    try {
+      await advanceOrder({ data: { orderId: order.id, status, otp: code } });
+      onChange();
+    } catch (err) {
+      toast.error(
+        err instanceof Error && err.message.toLowerCase().includes("code")
           ? "That delivery code doesn't match. Ask the shop for the code."
-          : "Could not update the order.",
+          : err instanceof Error
+            ? err.message
+            : "Could not update the order.",
       );
+    } finally {
+      setBusy(false);
     }
-    onChange();
   };
 
   const openWhatsAppCustomer = () => {

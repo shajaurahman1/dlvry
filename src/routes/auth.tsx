@@ -38,7 +38,7 @@ const schema = z.object({
 function AuthPage() {
   const { role, mode } = Route.useSearch();
   const navigate = useNavigate();
-  const { user, roles, loading } = useAuth();
+  const { user, roles, activeRole, loading } = useAuth();
   const [tab, setTab] = useState<"signin" | "signup" | "forgot">(mode ?? "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,11 +49,13 @@ function AuthPage() {
   useEffect(() => {
     if (!loading && user) {
       if (roles.includes("admin")) navigate({ to: "/admin" });
+      else if (activeRole === "driver" && roles.includes("driver")) navigate({ to: "/driver" });
+      else if (activeRole === "shopkeeper" && roles.includes("shopkeeper")) navigate({ to: "/shop" });
       else if (roles.includes("shopkeeper")) navigate({ to: "/shop" });
       else if (roles.includes("driver")) navigate({ to: "/driver" });
       else navigate({ to: "/onboarding" });
     }
-  }, [loading, user, roles, navigate]);
+  }, [loading, user, roles, activeRole, navigate]);
 
   const forgotPassword = async () => {
     const em = email.trim().toLowerCase();
@@ -63,11 +65,13 @@ function AuthPage() {
     }
     setBusy(true);
     try {
+      const webOrigin =
+        (import.meta.env.VITE_PUBLIC_WEB_ORIGIN as string | undefined) || "https://moveby.in";
       const { error } = await supabase.auth.resetPasswordForEmail(em, {
         redirectTo: `${
           window.location.origin.startsWith("http") && !window.location.hostname.includes("localhost")
             ? window.location.origin
-            : "https://dlvry.lovable.app"
+            : webOrigin
         }/auth-callback?type=recovery`,
       });
       if (error) throw error;
