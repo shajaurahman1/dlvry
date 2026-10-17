@@ -45,12 +45,15 @@ const corsMiddleware = createMiddleware().server(async ({ next }) => {
     });
   }
 
-  const response = await next();
-  if (!allowOrigin) return response;
-  const headers = new Headers(response.headers);
+  const result = await next();
+  if (!allowOrigin) return result;
+  const headers = new Headers(result.response.headers);
   headers.set("Access-Control-Allow-Origin", allowOrigin);
   headers.append("Vary", "Origin");
-  return new Response(response.body, { status: response.status, headers });
+  return {
+    ...result,
+    response: new Response(result.response.body, { status: result.response.status, headers }),
+  };
 });
 
 // The server functions used throughout the app (Turso-backed data calls,
@@ -62,7 +65,7 @@ const corsMiddleware = createMiddleware().server(async ({ next }) => {
 // the native shell, rewrite every server-fn call to the deployed web
 // origin instead, which does have the server running.
 const PUBLIC_WEB_ORIGIN =
-  (import.meta.env.VITE_PUBLIC_WEB_ORIGIN as string | undefined) || "https://dlvry-nine.vercel.app";
+  (import.meta.env.VITE_PUBLIC_WEB_ORIGIN as string | undefined) || "https://moveby.in";
 
 const serverFnFetch: typeof fetch = (input, init) => {
   if (isNativeApp() && typeof input === "string" && input.startsWith("/")) {

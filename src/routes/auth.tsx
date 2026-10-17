@@ -65,11 +65,13 @@ function AuthPage() {
     }
     setBusy(true);
     try {
+      const webOrigin =
+        (import.meta.env.VITE_PUBLIC_WEB_ORIGIN as string | undefined) || "https://moveby.in";
       const { error } = await supabase.auth.resetPasswordForEmail(em, {
         redirectTo: `${
           window.location.origin.startsWith("http") && !window.location.hostname.includes("localhost")
             ? window.location.origin
-            : "https://dlvry.lovable.app"
+            : webOrigin
         }/auth-callback?type=recovery`,
       });
       if (error) throw error;

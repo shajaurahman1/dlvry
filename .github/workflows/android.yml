@@ -41,8 +41,10 @@ jobs:
           # so every server function call (all Turso-backed data calls) is rewritten
           # at runtime to hit this deployed origin instead of a relative path — see
           # src/start.ts. Turso credentials are never needed here: they're read only
-          # by the server build that actually runs on Vercel.
-          VITE_PUBLIC_WEB_ORIGIN: "https://dlvry-nine.vercel.app"
+          # by the server build that actually runs on Vercel. This must be the real
+          # production domain (moveby.in) — dlvry-nine.vercel.app is a different,
+          # unrelated Vercel project and has none of this app's server functions.
+          VITE_PUBLIC_WEB_ORIGIN: "https://moveby.in"
         run: npm run build
 
       - name: Sync Capacitor
