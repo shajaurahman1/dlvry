@@ -10,17 +10,21 @@ import { pageHead } from "@/lib/metadata";
 export const Route = createFileRoute("/")({ head: () => pageHead("Local delivery, connected", "MOVEBY connects local shops with nearby delivery partners. Customer calls, local pickups and direct doorstep payments."), component: Landing });
 
 function Landing() {
-  const { user, roles, loading } = useAuth();
+  const { user, roles, activeRole, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!loading && user) {
       if (roles.includes("admin")) navigate({ to: "/admin", replace: true });
+      else if (activeRole === "driver" && roles.includes("driver"))
+        navigate({ to: "/driver", replace: true });
+      else if (activeRole === "shopkeeper" && roles.includes("shopkeeper"))
+        navigate({ to: "/shop", replace: true });
       else if (roles.includes("shopkeeper")) navigate({ to: "/shop", replace: true });
       else if (roles.includes("driver")) navigate({ to: "/driver", replace: true });
       else navigate({ to: "/onboarding", replace: true });
     }
-  }, [user, roles, loading, navigate]);
+  }, [user, roles, activeRole, loading, navigate]);
 
   if (loading || user) {
     return (

@@ -37,6 +37,12 @@ jobs:
           SUPABASE_URL: "https://c--db2a9864-11eb-49a0-8d48-e654e736409e-prod.lovable.cloud"
           SUPABASE_SERVICE_ROLE_KEY: "dummy"
           SUPABASE_PUBLISHABLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6Y2NzZ3VuaWFmd25lZGxwc21nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMDQzOTQsImV4cCI6MjA5ODU4MDM5NH0.twtoMlF7yHo2af3NCwdyRJTSj2MN_3vhfJ29TGSbjCk"
+          # The Android build ships a static client bundle with no server behind it,
+          # so every server function call (all Turso-backed data calls) is rewritten
+          # at runtime to hit this deployed origin instead of a relative path — see
+          # src/start.ts. Turso credentials are never needed here: they're read only
+          # by the server build that actually runs on Vercel.
+          VITE_PUBLIC_WEB_ORIGIN: "https://dlvry-nine.vercel.app"
         run: npm run build
 
       - name: Sync Capacitor

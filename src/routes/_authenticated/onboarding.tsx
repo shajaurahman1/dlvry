@@ -2,7 +2,9 @@ import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
+import { updateProfile } from "@/lib/profile.functions";
+import { upsertMyShop } from "@/lib/shop.functions";
+import { upsertMyDriver } from "@/lib/driver.functions";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,20 +25,30 @@ const LocationPicker = lazy(() =>
   import("@/components/location-picker").then((m) => ({ default: m.LocationPicker })),
 );
 
-export const Route = createFileRoute("/_authenticated/onboarding")({ head: () => pageHead("Set up your profile", "Set up your shop or delivery partner profile on MOVEBY."), component: Onboarding });
+export const Route = createFileRoute("/_authenticated/onboarding")({
+  validateSearch: (s: Record<string, unknown>): { role?: "shopkeeper" | "driver" } => ({
+    role: s.role === "shopkeeper" || s.role === "driver" ? s.role : undefined,
+  }),
+  head: () => pageHead("Set up your profile", "Set up your shop or delivery partner profile on MOVEBY."),
+  component: Onboarding,
+});
 
 function Onboarding() {
   const { user, roles, refresh, loading } = useAuth();
   const navigate = useNavigate();
-  const [role, setRole] = useState<"shopkeeper" | "driver" | null>(null);
+  const { role: requestedRole } = Route.useSearch();
+  const [role, setRole] = useState<"shopkeeper" | "driver" | null>(requestedRole ?? null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (loading) return;
+    // A role param means the user was sent here deliberately (e.g. via "Switch to
+    // Delivery Partner" when they don't hold it yet) — don't bounce them back out.
+    if (requestedRole) return;
     if (roles.includes("admin")) navigate({ to: "/admin" });
     else if (roles.includes("shopkeeper")) navigate({ to: "/shop" });
     else if (roles.includes("driver")) navigate({ to: "/driver" });
-  }, [roles, loading, navigate]);
+  }, [roles, loading, navigate, requestedRole]);
 
   if (!user) return null;
 
@@ -120,26 +132,17 @@ function ShopkeeperForm({
       return toast.error("Shop name and address are required");
     setBusy(true);
     try {
-      await supabase
-        .from("profiles")
-        .update({ phone: f.phone, whatsapp: f.whatsapp })
-        .eq("id", userId);
-      const { error } = await supabase.from("shopkeepers").upsert(
-        {
-          id: userId,
+      await updateProfile({ data: { phone: f.phone, whatsapp: f.whatsapp } });
+      await upsertMyShop({
+        data: {
           shop_name: f.shop_name,
           shop_category: f.shop_category,
           address: f.address,
           latitude: coords.lat,
           longitude: coords.lng,
-          gst_number: f.gst_number || null,
+          gst_number: f.gst_number || undefined,
         },
-        { onConflict: "id" },
-      );
-      if (error) throw error;
-      await supabase
-        .from("user_roles")
-        .upsert({ user_id: userId, role: "shopkeeper" }, { onConflict: "user_id,role" });
+      });
       toast.success("You're all set — welcome to MOVEBY");
       onDone();
     } catch (err) {
@@ -262,26 +265,17 @@ function DriverForm({
     e.preventDefault();
     setBusy(true);
     try {
-      await supabase
-        .from("profiles")
-        .update({ phone: f.phone, whatsapp: f.whatsapp })
-        .eq("id", userId);
-      const { error } = await supabase.from("drivers").upsert(
-        {
-          id: userId,
-          date_of_birth: f.date_of_birth || null,
+      await updateProfile({ data: { phone: f.phone, whatsapp: f.whatsapp } });
+      await upsertMyDriver({
+        data: {
+          date_of_birth: f.date_of_birth || undefined,
           home_address: f.home_address,
           emergency_contact: f.emergency_contact,
           vehicle_type: f.vehicle_type,
-          vehicle_number: f.vehicle_number || null,
+          vehicle_number: f.vehicle_number || undefined,
           available_cash: Number(f.available_cash) || 0,
         },
-        { onConflict: "id" },
-      );
-      if (error) throw error;
-      await supabase
-        .from("user_roles")
-        .upsert({ user_id: userId, role: "driver" }, { onConflict: "user_id,role" });
+      });
       toast.success("You're all set — welcome to MOVEBY");
       onDone();
     } catch (err) {
