@@ -37,10 +37,14 @@ jobs:
           SUPABASE_URL: "https://c--db2a9864-11eb-49a0-8d48-e654e736409e-prod.lovable.cloud"
           SUPABASE_SERVICE_ROLE_KEY: "dummy"
           SUPABASE_PUBLISHABLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6Y2NzZ3VuaWFmd25lZGxwc21nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMDQzOTQsImV4cCI6MjA5ODU4MDM5NH0.twtoMlF7yHo2af3NCwdyRJTSj2MN_3vhfJ29TGSbjCk"
-          # Public Google "Web application" OAuth Client ID (not a secret) used by
-          # native "Sign in with Google" — the same one set on Supabase's Google
-          # provider. A GOOGLE_WEB_CLIENT_ID repo secret still overrides this.
-          VITE_GOOGLE_WEB_CLIENT_ID: "${{ secrets.GOOGLE_WEB_CLIENT_ID || '1041050033360-0igighhmuqo0d62mimgdoerea15idh6p.apps.googleusercontent.com' }}"
+          # The Android build ships a static client bundle with no server behind it,
+          # so every server function call (all Turso-backed data calls) is rewritten
+          # at runtime to hit this deployed origin instead of a relative path — see
+          # src/start.ts. Turso credentials are never needed here: they're read only
+          # by the server build that actually runs on Vercel. This must be the real
+          # production domain (moveby.in) — dlvry-nine.vercel.app is a different,
+          # unrelated Vercel project and has none of this app's server functions.
+          VITE_PUBLIC_WEB_ORIGIN: "https://moveby.in"
         run: npm run build
 
       - name: Sync Capacitor
@@ -61,12 +65,9 @@ jobs:
             echo "keyAlias=${{ secrets.PLAY_CONSOLE_KEY_ALIAS }}" >> keystore.properties
             echo "storeFile=../release.keystore" >> keystore.properties
           else
-            echo "No keystore secret found, generating a temporary one for testing"
-            keytool -genkey -v -keystore release.keystore -alias release -keyalg RSA -keysize 2048 -validity 10000 -storepass password -keypass password -dname "CN=Unknown, OU=Unknown, O=Unknown, L=Unknown, ST=Unknown, C=Unknown"
-            echo "storePassword=password" > keystore.properties
-            echo "keyPassword=password" >> keystore.properties
-            echo "keyAlias=release" >> keystore.properties
-            echo "storeFile=../release.keystore" >> keystore.properties
+            echo "ERROR: Required GitHub Action secrets are missing. Do not generate a mock keystore."
+            echo "Please set PLAY_CONSOLE_KEYSTORE, PLAY_CONSOLE_KEYSTORE_PASSWORD, PLAY_CONSOLE_KEY_ALIAS, and PLAY_CONSOLE_KEY_PASSWORD in GitHub Settings."
+            exit 1
           fi
 
       - name: Build AAB (Release)

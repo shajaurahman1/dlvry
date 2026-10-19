@@ -1,3 +1,4 @@
+import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,23 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
-import { isNativeApp } from "@/lib/platform";
-import { googleOneTapSignIn } from "@/lib/google-one-tap";
 import { z } from "zod";
-
-// The password-reset email always links to this website — not the native
-// app directly — since email clients can't reliably hand off a custom-scheme
-// link to an installed app. The site (auth-callback.tsx) completes the
-// reset, then tells the user to switch back to the app themselves.
-const PUBLIC_WEB_ORIGIN =
-  (import.meta.env.VITE_PUBLIC_WEB_ORIGIN as string | undefined) || "https://dlvry-nine.vercel.app";
 
 type SearchParams = {
   role?: "shopkeeper" | "driver" | "admin";
   mode?: "signin" | "signup" | "forgot";
 };
 
-export const Route = createFileRoute("/auth")({
+export const Route = createFileRoute("/auth")({ head: () => pageHead("Sign in", "Sign in or create your MOVEBY account to connect with local shops and delivery partners."),
   validateSearch: (s: Record<string, unknown>): SearchParams => ({
     role: s.role === "shopkeeper" || s.role === "driver" || s.role === "admin" ? s.role : undefined,
     mode: s.mode === "signup" ? "signup" : s.mode === "forgot" ? "forgot" : "signin",
@@ -46,7 +38,7 @@ const schema = z.object({
 function AuthPage() {
   const { role, mode } = Route.useSearch();
   const navigate = useNavigate();
-  const { user, roles, loading } = useAuth();
+  const { user, roles, activeRole, loading } = useAuth();
   const [tab, setTab] = useState<"signin" | "signup" | "forgot">(mode ?? "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -57,11 +49,13 @@ function AuthPage() {
   useEffect(() => {
     if (!loading && user) {
       if (roles.includes("admin")) navigate({ to: "/admin" });
+      else if (activeRole === "driver" && roles.includes("driver")) navigate({ to: "/driver" });
+      else if (activeRole === "shopkeeper" && roles.includes("shopkeeper")) navigate({ to: "/shop" });
       else if (roles.includes("shopkeeper")) navigate({ to: "/shop" });
       else if (roles.includes("driver")) navigate({ to: "/driver" });
       else navigate({ to: "/onboarding" });
     }
-  }, [loading, user, roles, navigate]);
+  }, [loading, user, roles, activeRole, navigate]);
 
   const forgotPassword = async () => {
     const em = email.trim().toLowerCase();
@@ -71,8 +65,14 @@ function AuthPage() {
     }
     setBusy(true);
     try {
+      const webOrigin =
+        (import.meta.env.VITE_PUBLIC_WEB_ORIGIN as string | undefined) || "https://moveby.in";
       const { error } = await supabase.auth.resetPasswordForEmail(em, {
-        redirectTo: `${PUBLIC_WEB_ORIGIN}/auth-callback?type=recovery`,
+        redirectTo: `${
+          window.location.origin.startsWith("http") && !window.location.hostname.includes("localhost")
+            ? window.location.origin
+            : webOrigin
+        }/auth-callback?type=recovery`,
       });
       if (error) throw error;
       toast.success("Check your email for the password reset link.");
@@ -80,42 +80,6 @@ function AuthPage() {
       setTab("signin");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Couldn't send the link.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const signInWithGoogle = async () => {
-    setBusy(true);
-    try {
-      if (isNativeApp()) {
-        const { idToken, nonce } = await googleOneTapSignIn();
-        const { error } = await supabase.auth.signInWithIdToken({
-          provider: "google",
-          token: idToken,
-          nonce,
-        });
-        if (error) throw error;
-        toast.success("Welcome back.");
-      } else {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: { redirectTo: `${window.location.origin}/auth-callback` },
-        });
-        if (error) throw error;
-        // Browser redirects away; nothing further to do here.
-      }
-    } catch (err: unknown) {
-      const code = (err as { code?: string } | undefined)?.code;
-      if (code === "cancelled") {
-        // User dismissed the account picker — not an error worth surfacing.
-      } else if (code === "no_credential") {
-        toast.error("No Google account found on this device.");
-      } else {
-        toast.error(
-          err instanceof Error ? err.message : "Google sign-in failed. Please try again.",
-        );
-      }
     } finally {
       setBusy(false);
     }
@@ -199,7 +163,7 @@ function AuthPage() {
             <div className="mb-6 rounded-lg bg-accent px-3 py-4 text-center">
               <h3 className="text-base font-semibold text-foreground">Reset Password</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Enter your email and we'll send you a link to reset your password.
+                Enter your email and we'll send you a link to create a new password.
               </p>
             </div>
           )}
@@ -208,42 +172,6 @@ function AuthPage() {
             <p className="mb-4 rounded-lg bg-accent px-3 py-2 text-xs text-muted-foreground">
               Signing up as <span className="font-semibold capitalize text-foreground">{role}</span>
             </p>
-          )}
-
-          {tab !== "forgot" && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void signInWithGoogle()}
-              className="mb-4 flex h-11 w-full items-center justify-center gap-2.5 rounded-full border border-border bg-card text-sm font-semibold transition hover:bg-muted disabled:opacity-60"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.65l-3.57-2.77c-.99.66-2.26 1.06-3.71 1.06-2.86 0-5.29-1.93-6.15-4.53H2.18v2.84A11 11 0 0 0 12 23Z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.85 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.67-2.84Z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.65l3.15-3.15C17.45 2.12 14.96 1 12 1a11 11 0 0 0-9.82 6.05l3.67 2.84c.86-2.6 3.29-4.51 6.15-4.51Z"
-                />
-              </svg>
-              Continue with Google
-            </button>
-          )}
-
-          {tab !== "forgot" && (
-            <div className="mb-4 flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="h-px flex-1 bg-border" /> or{" "}
-              <span className="h-px flex-1 bg-border" />
-            </div>
           )}
 
           <form onSubmit={submit} className="space-y-4">

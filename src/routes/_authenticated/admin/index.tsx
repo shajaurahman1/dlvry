@@ -1,20 +1,32 @@
+import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
+import { listShopkeepers, setShopkeeperStatus } from "@/lib/shop.functions";
+import { listDrivers, setDriverStatus as setDriverStatusFn } from "@/lib/driver.functions";
+import { listAdminOrders } from "@/lib/orders.functions";
+import { getSettings, updateSettings } from "@/lib/misc.functions";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo } from "@/lib/orders";
-import type { Tables } from "@/integrations/supabase/types";
 
-export const Route = createFileRoute("/_authenticated/admin/")({ component: AdminDashboard });
+export const Route = createFileRoute("/_authenticated/admin/")({ head: () => pageHead("Administration", "Manage MOVEBY partners, verification and deliveries."), component: AdminDashboard });
 
-type Shop = Tables<"shopkeepers">;
-type Driver = Tables<"drivers">;
-type Order = Tables<"orders">;
+type Shop = Awaited<ReturnType<typeof listShopkeepers>>[number] & {
+  id: string; shop_name: string; shop_category: string; address: string; approval_status: string;
+};
+type Driver = Awaited<ReturnType<typeof listDrivers>>[number] & {
+  id: string; vehicle_type: string; vehicle_number: string | null; home_address: string | null;
+  approval_status: string; verification_status: string; available_cash: number; rating_avg: number;
+  gov_id_url: string | null; selfie_url: string | null; licence_url: string | null; rc_url: string | null;
+  insurance_url: string | null; puc_url: string | null;
+};
+type Order = Awaited<ReturnType<typeof listAdminOrders>>[number] & {
+  id: string; order_description: string; customer_name: string; created_at: string; status: string; total_amount: number;
+};
 
 function AdminDashboard() {
   const { roles, loading } = useAuth();
@@ -32,48 +44,44 @@ function AdminDashboard() {
   }, [roles, loading, navigate]);
 
   const load = async () => {
-    const [{ data: s }, { data: d }, { data: o }] = await Promise.all([
-      supabase.from("shopkeepers").select("*").order("created_at", { ascending: false }),
-      supabase.from("drivers").select("*").order("created_at", { ascending: false }),
-      supabase.from("orders").select("*").order("created_at", { ascending: false }).limit(50),
-    ]);
-    setBusinesses(s ?? []);
-    setDrivers(d ?? []);
-    setOrders(o ?? []);
+    const [s, d, o] = await Promise.all([listShopkeepers(), listDrivers(), listAdminOrders()]);
+    setBusinesses((s ?? []) as unknown as Shop[]);
+    setDrivers((d ?? []) as unknown as Driver[]);
+    setOrders((o ?? []) as unknown as Order[]);
   };
   useEffect(() => {
     void load();
   }, []);
 
   const setShopStatus = async (id: string, status: "approved" | "rejected" | "suspended") => {
-    const { error } = await supabase
-      .from("shopkeepers")
-      .update({ approval_status: status })
-      .eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Updated");
-    load();
+    try {
+      await setShopkeeperStatus({ data: { id, approval_status: status } });
+      toast.success("Updated");
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update");
+    }
   };
   const setDriverStatus = async (id: string, status: "approved" | "rejected" | "suspended") => {
-    const { error } = await supabase
-      .from("drivers")
-      .update({ approval_status: status })
-      .eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Updated");
-    load();
+    try {
+      await setDriverStatusFn({ data: { id, approval_status: status } });
+      toast.success("Updated");
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update");
+    }
   };
   const setVerification = async (
     id: string,
     status: "verified" | "active" | "rejected" | "resubmit",
   ) => {
-    const { error } = await supabase
-      .from("drivers")
-      .update({ verification_status: status })
-      .eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success(`Marked ${status}`);
-    load();
+    try {
+      await setDriverStatusFn({ data: { id, verification_status: status } });
+      toast.success(`Marked ${status}`);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update");
+    }
   };
 
   const pendingBusinesses = businesses.filter((s) => s.approval_status === "pending");
@@ -291,31 +299,30 @@ function SettingsPanel() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    void supabase
-      .from("app_settings")
-      .select("*")
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data) return;
-        setRadius(String(data.delivery_radius_km));
-        setExpiry(String(data.request_expiry_minutes));
-        setSupport(data.support_number ?? "");
-      });
+    void getSettings().then((data) => {
+      if (!data) return;
+      setRadius(String(data.delivery_radius_km));
+      setExpiry(String(data.request_expiry_minutes));
+      setSupport((data.support_number as string | null) ?? "");
+    });
   }, []);
 
   const save = async () => {
     setBusy(true);
-    const { error } = await supabase
-      .from("app_settings")
-      .update({
-        delivery_radius_km: Number(radius) || 3,
-        request_expiry_minutes: Number(expiry) || 10,
-        support_number: support || null,
-      })
-      .eq("id", true);
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Settings saved");
+    try {
+      await updateSettings({
+        data: {
+          delivery_radius_km: Number(radius) || 3,
+          request_expiry_minutes: Number(expiry) || 10,
+          support_number: support || undefined,
+        },
+      });
+      toast.success("Settings saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save settings");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

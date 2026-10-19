@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { isNativeApp } from "@/lib/platform";
+import { initPushNotifications } from "@/lib/push";
 
 const ROOT_PATHS = ["/", "/auth", "/shop", "/driver", "/admin"];
 
@@ -16,6 +17,7 @@ export function useNativeShell() {
 
   useEffect(() => {
     if (!isNativeApp()) return;
+    initPushNotifications();
     let remove: (() => void) | undefined;
     let lastBackPress = 0;
 
@@ -56,7 +58,7 @@ export function useNativeShell() {
           if (
             urlStr.includes("callback") ||
             urlStr.includes("type=recovery") ||
-            urlStr.includes("dlvry.lovable.app")
+            urlStr.includes("moveby.in")
           ) {
             try {
               const { Browser } = await import("@capacitor/browser");
@@ -66,7 +68,7 @@ export function useNativeShell() {
             }
             const url = new URL(urlStr);
 
-            // If it's a direct deep link to the lovable app domain, it's likely a recovery link
+            // If it's a direct deep link to the production web domain, it's likely a recovery link
             // Adjust the URL so the router correctly processes the hash/search parameters
             const isRecovery = urlStr.includes("type=recovery");
 

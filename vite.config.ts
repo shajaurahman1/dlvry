@@ -4,7 +4,7 @@
 //     componentTagger (dev-only), VITE_* env injection, @ path alias, React/TanStack dedupe,
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import type { Plugin } from "vite";
@@ -23,7 +23,9 @@ function prerenderServerEntryShim(): Plugin {
       mkdirSync(distDir, { recursive: true });
       const importPath = process.env.VERCEL
         ? "../../.vercel/output/functions/__server.func/index.mjs"
-        : "../../.output/server/index.mjs";
+        : existsSync(resolve(distDir, "index.mjs"))
+          ? "./index.mjs"
+          : "../../.output/server/index.mjs";
 
       writeFileSync(
         resolve(distDir, "server.js"),

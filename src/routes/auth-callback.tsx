@@ -1,15 +1,15 @@
+import { pageHead } from "@/lib/metadata";
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { isNativeApp } from "@/lib/platform";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DlvryLogo } from "@/components/brand/logo";
 import { Link } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/auth-callback")({
+export const Route = createFileRoute("/auth-callback")({ head: () => pageHead("Account recovery", "Complete sign-in or reset your MOVEBY password and continue in the app."),
   component: AuthCallbackPage,
 });
 
@@ -21,6 +21,7 @@ function AuthCallbackPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [recoverySuccess, setRecoverySuccess] = useState(false);
+  const [showAppThanks, setShowAppThanks] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
@@ -46,19 +47,19 @@ function AuthCallbackPage() {
       }
 
       const type = url.searchParams.get("type");
-      const isNative = isNativeApp();
-
-      // Extract access_token and refresh_token from the hash for native implicit flows (like recovery)
       const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
       const accessToken = hashParams.get("access_token");
       const refreshToken = hashParams.get("refresh_token");
+      const isRecoveryFlow =
+        type === "recovery" ||
+        url.hash.includes("type=recovery") ||
+        url.href.includes("recovery");
 
-      if (code && isNative) {
-        // On native, we must exchange the code manually because the deep link
-        // doesn't trigger Supabase's automatic on-load processing
+      if (code) {
+        // Exchange the recovery/PKCE code on all platforms (web + native)
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
-          if (type === "recovery") {
+          if (isRecoveryFlow) {
             setIsRecovery(true);
             setErrorMsg(error.message);
           } else {
@@ -66,22 +67,21 @@ function AuthCallbackPage() {
             navigate({ to: "/auth", replace: true });
           }
         } else {
-          if (type === "recovery") {
+          if (isRecoveryFlow) {
             setIsRecovery(true);
           } else {
             navigate({ to: "/", replace: true });
           }
         }
       } else if (accessToken && refreshToken) {
-        // For implicit flows (like recovery) on web or native, manually set the session
-        // because the synthetic hash update might not be caught by Supabase
+        // Implicit flow: tokens arrive in the URL hash
         const { error } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
 
         if (error) {
-          if (type === "recovery" || url.hash.includes("type=recovery")) {
+          if (isRecoveryFlow) {
             setIsRecovery(true);
             setErrorMsg(error.message);
           } else {
@@ -89,16 +89,14 @@ function AuthCallbackPage() {
             navigate({ to: "/auth", replace: true });
           }
         } else {
-          if (type === "recovery" || url.hash.includes("type=recovery")) {
+          if (isRecoveryFlow) {
             setIsRecovery(true);
           } else {
             navigate({ to: "/", replace: true });
           }
         }
       } else {
-        // For web (or implicit flows on native), wait for Supabase to automatically
-        // exchange the code or pick up the session from the URL hash.
-        // We poll briefly to wait for the session to become available.
+        // Fallback: poll briefly in case Supabase auto-exchanged the code
         let session = null;
         for (let i = 0; i < 20; i++) {
           const { data } = await supabase.auth.getSession();
@@ -106,21 +104,20 @@ function AuthCallbackPage() {
             session = data.session;
             break;
           }
-          await new Promise((r) => setTimeout(r, 100)); // wait 100ms
+          await new Promise((r) => setTimeout(r, 100));
         }
 
         if (session) {
-          if (type === "recovery" || url.hash.includes("type=recovery")) {
+          if (isRecoveryFlow) {
             setIsRecovery(true);
           } else {
             navigate({ to: "/", replace: true });
           }
         } else {
-          if (type === "recovery" || url.hash.includes("type=recovery")) {
+          if (isRecoveryFlow) {
             setIsRecovery(true);
             setErrorMsg("Recovery link is invalid or has expired.");
           } else {
-            // If no session and no code processed, go back to auth
             toast.error("Sign in failed. Please try again.");
             navigate({ to: "/auth", replace: true });
           }
@@ -146,6 +143,7 @@ function AuthCallbackPage() {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       setRecoverySuccess(true);
+      toast.success("Your password has been updated.");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Couldn't update password.");
     } finally {
@@ -163,16 +161,19 @@ function AuthCallbackPage() {
           <div className="card-elevated p-8">
             {recoverySuccess ? (
               <div className="text-center">
-                <h3 className="mb-4 text-xl font-semibold text-foreground">
-                  Password changed successfully.
+                <h3 className="mb-2 text-xl font-semibold text-foreground">
+                  Password changed successfully
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  You can now return to the MOVEBY app and sign in with your new password.
+                <p className="mb-6 text-sm text-muted-foreground">
+                  {showAppThanks
+                    ? "Open the MOVEBY app and sign in with your new password."
+                    : "You can continue with the app now."}
                 </p>
                 <div className="space-y-3">
                   <Button
                     type="button"
                     onClick={() => {
+                      setShowAppThanks(true);
                       window.location.href = "com.moveby.app://callback";
                     }}
                     className="h-11 w-full rounded-full text-sm font-semibold"

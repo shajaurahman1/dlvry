@@ -41,7 +41,7 @@ export function LocationGate({
         ? "Taking longer than usual. Move to an open area — we'll keep trying in the background."
         : state === "denied"
           ? native
-            ? "DLVRY needs location access to show delivery requests within 3 km of you."
+            ? "MOVEBY needs location access to show delivery requests within 3 km of you."
             : "Location is blocked for this site. Re-enable it in your site settings, then try again."
           : state === "gps_disabled"
             ? "Location Services are switched off on this device. Turn them on to continue."

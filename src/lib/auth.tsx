@@ -1,13 +1,19 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
+import { unregisterDevice } from "@/lib/push";
+import { getMe } from "@/lib/profile.functions";
 
 export type AppRole = "shopkeeper" | "driver" | "admin";
 
 interface AuthState {
   user: User | null;
   session: Session | null;
+  profile: Record<string, unknown> | null;
   roles: AppRole[];
+  activeRole: AppRole | null;
+  shop: Record<string, unknown> | null;
+  driver: Record<string, unknown> | null;
   loading: boolean;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -15,27 +21,38 @@ interface AuthState {
 
 const Ctx = createContext<AuthState | null>(null);
 
-async function fetchRoles(userId: string): Promise<AppRole[]> {
-  const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
-  return (data ?? []).map((r) => r.role as AppRole);
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
+  const [activeRole, setActiveRoleState] = useState<AppRole | null>(null);
+  const [shop, setShop] = useState<Record<string, unknown> | null>(null);
+  const [driver, setDriver] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
 
   const applySession = async (s: Session | null) => {
     if (s?.user) {
-      const fetchedRoles = await fetchRoles(s.user.id);
       setSession(s);
       setUser(s.user);
-      setRoles(fetchedRoles);
+      try {
+        const me = await getMe();
+        setProfile((me.profile as Record<string, unknown> | null) ?? null);
+        setRoles(me.roles as AppRole[]);
+        setActiveRoleState((me.activeRole as AppRole | null) ?? null);
+        setShop((me.shop as Record<string, unknown> | null) ?? null);
+        setDriver((me.driver as Record<string, unknown> | null) ?? null);
+      } catch (err) {
+        console.error("[auth] failed to load profile", err);
+      }
     } else {
       setSession(null);
       setUser(null);
+      setProfile(null);
       setRoles([]);
+      setActiveRoleState(null);
+      setShop(null);
+      setDriver(null);
     }
   };
 
@@ -54,12 +71,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         session,
+        profile,
         roles,
+        activeRole,
+        shop,
+        driver,
         loading,
         refresh: async () => {
-          if (user) setRoles(await fetchRoles(user.id));
+          if (session) await applySession(session);
         },
         signOut: async () => {
+          await unregisterDevice();
           await supabase.auth.signOut();
         },
       }}

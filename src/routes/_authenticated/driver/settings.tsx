@@ -1,7 +1,9 @@
+import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
+import { getMyDriver, upsertMyDriver } from "@/lib/driver.functions";
+import { updateProfile } from "@/lib/profile.functions";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,14 +18,14 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/driver/settings")({
+export const Route = createFileRoute("/_authenticated/driver/settings")({ head: () => pageHead("Delivery partner settings", "Update your delivery profile and alert radius on MOVEBY."),
   component: DriverSettings,
 });
 
 type VehicleType = "walking" | "cycle" | "bike" | "car";
 
 function DriverSettings() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -44,51 +46,42 @@ function DriverSettings() {
   useEffect(() => {
     if (!user) return;
     void (async () => {
-      const [{ data: p }, { data: d }] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-        supabase.from("drivers").select("*").eq("id", user.id).maybeSingle(),
-      ]);
+      const d = (await getMyDriver()) as Record<string, unknown> | null;
       setF({
-        full_name: p?.full_name ?? "",
-        phone: p?.phone ?? "",
-        whatsapp: p?.whatsapp ?? "",
-        date_of_birth: d?.date_of_birth ?? "",
-        home_address: d?.home_address ?? "",
+        full_name: (profile?.full_name as string) ?? "",
+        phone: (profile?.phone as string) ?? "",
+        whatsapp: (profile?.whatsapp as string) ?? "",
+        date_of_birth: (d?.date_of_birth as string) ?? "",
+        home_address: (d?.home_address as string) ?? "",
         vehicle_type: (d?.vehicle_type as VehicleType) ?? "bike",
-        vehicle_number: d?.vehicle_number ?? "",
+        vehicle_number: (d?.vehicle_number as string) ?? "",
         available_cash: String(d?.available_cash ?? 0),
-        payout_upi: d?.payout_upi ?? "",
-        bank_details: d?.bank_details ?? "",
+        payout_upi: (d?.payout_upi as string) ?? "",
+        bank_details: (d?.bank_details as string) ?? "",
         search_radius_km: String(d?.search_radius_km ?? 3),
       });
       setReady(true);
     })();
-  }, [user]);
+  }, [user, profile]);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setBusy(true);
     try {
-      const { error: pe } = await supabase
-        .from("profiles")
-        .update({ full_name: f.full_name, phone: f.phone, whatsapp: f.whatsapp })
-        .eq("id", user.id);
-      if (pe) throw pe;
-      const { error: de } = await supabase
-        .from("drivers")
-        .update({
-          date_of_birth: f.date_of_birth || null,
-          home_address: f.home_address || null,
+      await updateProfile({ data: { full_name: f.full_name, phone: f.phone, whatsapp: f.whatsapp } });
+      await upsertMyDriver({
+        data: {
+          date_of_birth: f.date_of_birth || undefined,
+          home_address: f.home_address || undefined,
           vehicle_type: f.vehicle_type,
-          vehicle_number: f.vehicle_number || null,
+          vehicle_number: f.vehicle_number || undefined,
           available_cash: Number(f.available_cash) || 0,
-          payout_upi: f.payout_upi || null,
-          bank_details: f.bank_details || null,
+          payout_upi: f.payout_upi || undefined,
+          bank_details: f.bank_details || undefined,
           search_radius_km: Number(f.search_radius_km) || 3,
-        })
-        .eq("id", user.id);
-      if (de) throw de;
+        },
+      });
       toast.success("Profile updated");
       navigate({ to: "/driver" });
     } catch (err) {

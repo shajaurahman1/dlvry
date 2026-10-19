@@ -20,6 +20,7 @@ import { Route as AuthenticatedDriverIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedDriverSettingsRouteImport } from './routes/_authenticated/driver/settings'
 import { Route as AuthenticatedShopIndexRouteImport } from './routes/_authenticated/shop/index'
 import { Route as AuthenticatedShopSettingsRouteImport } from './routes/_authenticated/shop/settings'
+import { Route as ApiPublicPushSendRouteImport } from './routes/api/public/push/send'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -78,6 +79,11 @@ const AuthenticatedShopSettingsRoute =
     path: '/shop/settings',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicPushSendRoute = ApiPublicPushSendRouteImport.update({
+  id: '/api/public/push/send',
+  path: '/api/public/push/send',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/driver/': typeof AuthenticatedDriverIndexRoute
   '/shop/': typeof AuthenticatedShopIndexRoute
+  '/api/public/push/send': typeof ApiPublicPushSendRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/driver': typeof AuthenticatedDriverIndexRoute
   '/shop': typeof AuthenticatedShopIndexRoute
+  '/api/public/push/send': typeof ApiPublicPushSendRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/driver/': typeof AuthenticatedDriverIndexRoute
   '/_authenticated/shop/': typeof AuthenticatedShopIndexRoute
+  '/api/public/push/send': typeof ApiPublicPushSendRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/driver/'
     | '/shop/'
+    | '/api/public/push/send'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/driver'
     | '/shop'
+    | '/api/public/push/send'
   id:
     | '__root__'
     | '/'
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/'
     | '/_authenticated/driver/'
     | '/_authenticated/shop/'
+    | '/api/public/push/send'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -163,6 +175,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   TermsRoute: typeof TermsRoute
+  ApiPublicPushSendRoute: typeof ApiPublicPushSendRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -244,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedShopSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/push/send': {
+      id: '/api/public/push/send'
+      path: '/api/public/push/send'
+      fullPath: '/api/public/push/send'
+      preLoaderRoute: typeof ApiPublicPushSendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -274,6 +294,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   TermsRoute: TermsRoute,
+  ApiPublicPushSendRoute: ApiPublicPushSendRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

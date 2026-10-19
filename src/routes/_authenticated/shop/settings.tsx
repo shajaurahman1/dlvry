@@ -1,7 +1,9 @@
+import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
+import { getMyShop, upsertMyShop } from "@/lib/shop.functions";
+import { updateProfile } from "@/lib/profile.functions";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,18 +18,21 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import type { PickedLocation } from "@/components/location-picker";
-import type { Tables } from "@/integrations/supabase/types";
 
 const LocationPicker = lazy(() =>
   import("@/components/location-picker").then((m) => ({ default: m.LocationPicker })),
 );
 
-export const Route = createFileRoute("/_authenticated/shop/settings")({ component: ShopSettings });
+export const Route = createFileRoute("/_authenticated/shop/settings")({ head: () => pageHead("Shop settings", "Update your shop details and location on MOVEBY."), component: ShopSettings });
 
-type Shop = Tables<"shopkeepers">;
+type Shop = NonNullable<Awaited<ReturnType<typeof getMyShop>>> & {
+  id: string; shop_name: string; address: string; shop_category: string | null;
+  owner_name: string | null; shop_phone: string | null; gst_number: string | null;
+  pan_number: string | null; licence_number: string | null; latitude: number; longitude: number;
+};
 
 function ShopSettings() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [shop, setShop] = useState<Shop | null>(null);
   const [coords, setCoords] = useState<PickedLocation | null>(null);
@@ -49,10 +54,7 @@ function ShopSettings() {
   useEffect(() => {
     if (!user) return;
     void (async () => {
-      const [{ data }, { data: p }] = await Promise.all([
-        supabase.from("shopkeepers").select("*").eq("id", user.id).maybeSingle(),
-        supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-      ]);
+      const data = (await getMyShop()) as Shop | null;
       if (!data) return;
       setShop(data);
       setForm({
@@ -64,41 +66,41 @@ function ShopSettings() {
         gst_number: data.gst_number ?? "",
         pan_number: data.pan_number ?? "",
         licence_number: data.licence_number ?? "",
-        full_name: p?.full_name ?? "",
-        phone: p?.phone ?? "",
-        whatsapp: p?.whatsapp ?? "",
+        full_name: (profile?.full_name as string) ?? "",
+        phone: (profile?.phone as string) ?? "",
+        whatsapp: (profile?.whatsapp as string) ?? "",
       });
       setCoords({ lat: data.latitude, lng: data.longitude });
     })();
-  }, [user]);
+  }, [user, profile]);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!shop || !coords) return;
     setBusy(true);
-    const { error: pe } = await supabase
-      .from("profiles")
-      .update({ full_name: form.full_name, phone: form.phone, whatsapp: form.whatsapp })
-      .eq("id", shop.id);
-    const { error } = await supabase
-      .from("shopkeepers")
-      .update({
-        shop_name: form.shop_name,
-        address: form.address,
-        shop_category: form.shop_category,
-        owner_name: form.owner_name || null,
-        shop_phone: form.shop_phone || null,
-        gst_number: form.gst_number || null,
-        pan_number: form.pan_number || null,
-        licence_number: form.licence_number || null,
-        latitude: coords.lat,
-        longitude: coords.lng,
-      })
-      .eq("id", shop.id);
-    setBusy(false);
-    if (pe || error) return toast.error((pe ?? error)!.message);
-    toast.success("Shop updated");
-    navigate({ to: "/shop" });
+    try {
+      await updateProfile({ data: { full_name: form.full_name, phone: form.phone, whatsapp: form.whatsapp } });
+      await upsertMyShop({
+        data: {
+          shop_name: form.shop_name,
+          address: form.address,
+          shop_category: form.shop_category,
+          owner_name: form.owner_name || undefined,
+          shop_phone: form.shop_phone || undefined,
+          gst_number: form.gst_number || undefined,
+          pan_number: form.pan_number || undefined,
+          licence_number: form.licence_number || undefined,
+          latitude: coords.lat,
+          longitude: coords.lng,
+        },
+      });
+      toast.success("Shop updated");
+      navigate({ to: "/shop" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save changes");
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (!shop)
