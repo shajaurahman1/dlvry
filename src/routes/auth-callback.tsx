@@ -174,7 +174,7 @@ function AuthCallbackPage() {
                     type="button"
                     onClick={() => {
                       setShowAppThanks(true);
-                      window.location.href = "com.dlvry.moveby://callback";
+                      window.location.href = "com.moveby.app://callback";
                     }}
                     className="h-11 w-full rounded-full text-sm font-semibold"
                   >

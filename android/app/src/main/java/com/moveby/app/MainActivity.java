@@ -1,4 +1,4 @@
-package com.dlvry.moveby;
+package com.moveby.app;
 
 import com.getcapacitor.BridgeActivity;
 

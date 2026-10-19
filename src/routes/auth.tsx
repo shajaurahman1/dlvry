@@ -92,8 +92,6 @@ function AuthPage() {
       return;
     }
 
-    // Continue with existing signin/signup logic
-    // Continue with existing signin/signup logic
     const parsed = schema.safeParse({ email, password, fullName });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
