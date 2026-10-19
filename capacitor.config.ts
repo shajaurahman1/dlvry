@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "in.dlvry.app",
-  appName: "dlvry",
+  appId: "com.moveby.app",
+  appName: "MOVEBY",
   webDir: ".output/public",
 };
 

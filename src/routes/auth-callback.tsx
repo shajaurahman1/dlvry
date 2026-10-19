@@ -167,8 +167,27 @@ function AuthCallbackPage() {
                   Password changed successfully.
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  You can now return to the DLVRY app and sign in with your new password.
+                  You can now return to the MOVEBY app and sign in with your new password.
                 </p>
+                <div className="space-y-3">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      window.location.href = "com.moveby.app://callback";
+                    }}
+                    className="h-11 w-full rounded-full text-sm font-semibold"
+                  >
+                    Continue with app
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate({ to: "/", replace: true })}
+                    className="h-11 w-full rounded-full text-sm font-semibold"
+                  >
+                    Go to site dashboard
+                  </Button>
+                </div>
               </div>
             ) : (
               <>
