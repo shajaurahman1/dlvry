@@ -56,6 +56,25 @@ function prerenderServerEntryShim(): Plugin {
       if (process.env.VERCEL) {
         const functionDir = resolve(process.cwd(), ".vercel/output/functions/__server.func");
         writeFileSync(
+          resolve(functionDir, "server.js"),
+          [
+            "import handler from './index.mjs';",
+            "export default {",
+            "  async fetch(request, env, ctx) {",
+            "    const hasBody = request.method !== 'GET' && request.method !== 'HEAD';",
+            "    const copy = new Request(request.url, {",
+            "      method: request.method,",
+            "      headers: request.headers,",
+            "      body: hasBody ? await request.arrayBuffer() : undefined,",
+            "    });",
+            "    const execCtx = ctx ?? { waitUntil: () => {}, passThroughOnException: () => {} };",
+            "    return handler.fetch(copy, env ?? {}, execCtx);",
+            "  },",
+            "};",
+            "",
+          ].join("\\n"),
+        );
+        writeFileSync(
           resolve(functionDir, ".vc-config.json"),
           JSON.stringify({ runtime: "nodejs24.x", handler: "server.js" }, null, 2),
         );
