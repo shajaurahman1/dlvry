@@ -72,7 +72,7 @@ function prerenderServerEntryShim(): Plugin {
             "  },",
             "};",
             "",
-          ].join("\\n"),
+          ].join("\n"),
         );
         writeFileSync(
           resolve(functionDir, ".vc-config.json"),
