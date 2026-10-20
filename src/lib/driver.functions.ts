@@ -39,41 +39,48 @@ export const upsertMyDriver = createServerFn({ method: "POST" })
     const { db } = await import("@/integrations/turso/client.server");
     const { nowIso } = await import("@/integrations/turso/profile-helpers.server");
 
-    await db.execute({
-      sql: `INSERT INTO drivers
-              (id, date_of_birth, home_address, emergency_contact, vehicle_type, vehicle_number,
-               available_cash, bank_details, search_radius_km, gov_id_url, selfie_url, licence_url,
-               rc_url, insurance_url, puc_url, payout_upi)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-              date_of_birth = excluded.date_of_birth, home_address = excluded.home_address,
-              emergency_contact = excluded.emergency_contact, vehicle_type = excluded.vehicle_type,
-              vehicle_number = excluded.vehicle_number,
-              available_cash = COALESCE(excluded.available_cash, drivers.available_cash),
-              bank_details = COALESCE(excluded.bank_details, drivers.bank_details),
-              search_radius_km = COALESCE(excluded.search_radius_km, drivers.search_radius_km),
-              gov_id_url = COALESCE(excluded.gov_id_url, drivers.gov_id_url),
-              selfie_url = COALESCE(excluded.selfie_url, drivers.selfie_url),
-              licence_url = COALESCE(excluded.licence_url, drivers.licence_url),
-              rc_url = COALESCE(excluded.rc_url, drivers.rc_url),
-              insurance_url = COALESCE(excluded.insurance_url, drivers.insurance_url),
-              puc_url = COALESCE(excluded.puc_url, drivers.puc_url),
-              payout_upi = excluded.payout_upi, updated_at = ?`,
-      args: [
-        context.userId, data.date_of_birth ?? null, data.home_address ?? null, data.emergency_contact ?? null,
-        data.vehicle_type, data.vehicle_number ?? null, data.available_cash ?? 0, data.bank_details ?? null,
-        data.search_radius_km ?? null, data.gov_id_url ?? null, data.selfie_url ?? null, data.licence_url ?? null,
-        data.rc_url ?? null, data.insurance_url ?? null, data.puc_url ?? null, data.payout_upi ?? null, nowIso(),
+    // Batched into a single round trip — see the matching comment in
+    // shop.functions.ts's upsertMyShop for why.
+    await db.batch(
+      [
+        {
+          sql: `INSERT INTO drivers
+                  (id, date_of_birth, home_address, emergency_contact, vehicle_type, vehicle_number,
+                   available_cash, bank_details, search_radius_km, gov_id_url, selfie_url, licence_url,
+                   rc_url, insurance_url, puc_url, payout_upi)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                  date_of_birth = excluded.date_of_birth, home_address = excluded.home_address,
+                  emergency_contact = excluded.emergency_contact, vehicle_type = excluded.vehicle_type,
+                  vehicle_number = excluded.vehicle_number,
+                  available_cash = COALESCE(excluded.available_cash, drivers.available_cash),
+                  bank_details = COALESCE(excluded.bank_details, drivers.bank_details),
+                  search_radius_km = COALESCE(excluded.search_radius_km, drivers.search_radius_km),
+                  gov_id_url = COALESCE(excluded.gov_id_url, drivers.gov_id_url),
+                  selfie_url = COALESCE(excluded.selfie_url, drivers.selfie_url),
+                  licence_url = COALESCE(excluded.licence_url, drivers.licence_url),
+                  rc_url = COALESCE(excluded.rc_url, drivers.rc_url),
+                  insurance_url = COALESCE(excluded.insurance_url, drivers.insurance_url),
+                  puc_url = COALESCE(excluded.puc_url, drivers.puc_url),
+                  payout_upi = excluded.payout_upi, updated_at = ?`,
+          args: [
+            context.userId, data.date_of_birth ?? null, data.home_address ?? null, data.emergency_contact ?? null,
+            data.vehicle_type, data.vehicle_number ?? null, data.available_cash ?? 0, data.bank_details ?? null,
+            data.search_radius_km ?? null, data.gov_id_url ?? null, data.selfie_url ?? null, data.licence_url ?? null,
+            data.rc_url ?? null, data.insurance_url ?? null, data.puc_url ?? null, data.payout_upi ?? null, nowIso(),
+          ],
+        },
+        {
+          sql: "INSERT OR IGNORE INTO user_roles (id, user_id, role) VALUES (?, ?, 'driver')",
+          args: [crypto.randomUUID(), context.userId],
+        },
+        {
+          sql: "INSERT INTO account_preferences (user_id, active_role) VALUES (?, 'driver') ON CONFLICT(user_id) DO NOTHING",
+          args: [context.userId],
+        },
       ],
-    });
-    await db.execute({
-      sql: "INSERT OR IGNORE INTO user_roles (id, user_id, role) VALUES (?, ?, 'driver')",
-      args: [crypto.randomUUID(), context.userId],
-    });
-    await db.execute({
-      sql: "INSERT INTO account_preferences (user_id, active_role) VALUES (?, 'driver') ON CONFLICT(user_id) DO NOTHING",
-      args: [context.userId],
-    });
+      "write",
+    );
     return { ok: true };
   });
 

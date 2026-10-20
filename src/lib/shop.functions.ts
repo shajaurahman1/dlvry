@@ -41,36 +41,46 @@ export const upsertMyShop = createServerFn({ method: "POST" })
     const { db } = await import("@/integrations/turso/client.server");
     const { nowIso } = await import("@/integrations/turso/profile-helpers.server");
 
-    await db.execute({
-      sql: `INSERT INTO shopkeepers
-              (id, shop_name, shop_category, address, latitude, longitude, owner_name, shop_phone,
-               gst_number, pan_number, licence_number, gov_id_url, shop_photo_url, trade_license_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-              shop_name = excluded.shop_name, shop_category = excluded.shop_category,
-              address = excluded.address, latitude = excluded.latitude, longitude = excluded.longitude,
-              owner_name = excluded.owner_name, shop_phone = excluded.shop_phone,
-              gst_number = excluded.gst_number, pan_number = excluded.pan_number,
-              licence_number = excluded.licence_number,
-              gov_id_url = COALESCE(excluded.gov_id_url, shopkeepers.gov_id_url),
-              shop_photo_url = COALESCE(excluded.shop_photo_url, shopkeepers.shop_photo_url),
-              trade_license_url = COALESCE(excluded.trade_license_url, shopkeepers.trade_license_url),
-              updated_at = ?`,
-      args: [
-        context.userId, data.shop_name, data.shop_category, data.address, data.latitude, data.longitude,
-        data.owner_name ?? null, data.shop_phone ?? null, data.gst_number ?? null, data.pan_number ?? null,
-        data.licence_number ?? null, data.gov_id_url ?? null, data.shop_photo_url ?? null,
-        data.trade_license_url ?? null, nowIso(),
+    // Three writes that used to go out as separate sequential round trips to
+    // Turso (each with its own network latency) — batched into one so a slow
+    // mobile connection only has to survive a single round trip instead of
+    // three, which was tipping some submissions over into a "Failed to
+    // fetch" connection drop.
+    await db.batch(
+      [
+        {
+          sql: `INSERT INTO shopkeepers
+                  (id, shop_name, shop_category, address, latitude, longitude, owner_name, shop_phone,
+                   gst_number, pan_number, licence_number, gov_id_url, shop_photo_url, trade_license_url)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                  shop_name = excluded.shop_name, shop_category = excluded.shop_category,
+                  address = excluded.address, latitude = excluded.latitude, longitude = excluded.longitude,
+                  owner_name = excluded.owner_name, shop_phone = excluded.shop_phone,
+                  gst_number = excluded.gst_number, pan_number = excluded.pan_number,
+                  licence_number = excluded.licence_number,
+                  gov_id_url = COALESCE(excluded.gov_id_url, shopkeepers.gov_id_url),
+                  shop_photo_url = COALESCE(excluded.shop_photo_url, shopkeepers.shop_photo_url),
+                  trade_license_url = COALESCE(excluded.trade_license_url, shopkeepers.trade_license_url),
+                  updated_at = ?`,
+          args: [
+            context.userId, data.shop_name, data.shop_category, data.address, data.latitude, data.longitude,
+            data.owner_name ?? null, data.shop_phone ?? null, data.gst_number ?? null, data.pan_number ?? null,
+            data.licence_number ?? null, data.gov_id_url ?? null, data.shop_photo_url ?? null,
+            data.trade_license_url ?? null, nowIso(),
+          ],
+        },
+        {
+          sql: "INSERT OR IGNORE INTO user_roles (id, user_id, role) VALUES (?, ?, 'shopkeeper')",
+          args: [crypto.randomUUID(), context.userId],
+        },
+        {
+          sql: "INSERT INTO account_preferences (user_id, active_role) VALUES (?, 'shopkeeper') ON CONFLICT(user_id) DO NOTHING",
+          args: [context.userId],
+        },
       ],
-    });
-    await db.execute({
-      sql: "INSERT OR IGNORE INTO user_roles (id, user_id, role) VALUES (?, ?, 'shopkeeper')",
-      args: [crypto.randomUUID(), context.userId],
-    });
-    await db.execute({
-      sql: "INSERT INTO account_preferences (user_id, active_role) VALUES (?, 'shopkeeper') ON CONFLICT(user_id) DO NOTHING",
-      args: [context.userId],
-    });
+      "write",
+    );
     return { ok: true };
   });
 
