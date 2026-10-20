@@ -49,9 +49,19 @@ export const updateProfile = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { db } = await import("@/integrations/turso/client.server");
     const { nowIso } = await import("@/integrations/turso/profile-helpers.server");
+    const email = (context.claims as { email?: string } | undefined)?.email ?? null;
     await db.execute({
-      sql: "UPDATE profiles SET full_name = COALESCE(?, full_name), phone = COALESCE(?, phone), whatsapp = COALESCE(?, whatsapp), updated_at = ? WHERE id = ?",
-      args: [data.full_name ?? null, data.phone ?? null, data.whatsapp ?? null, nowIso(), context.userId],
+      sql: `INSERT INTO profiles (id, email, full_name, phone, whatsapp, updated_at)
+            VALUES (?, ?, COALESCE(?, ''), ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              full_name = COALESCE(excluded.full_name, profiles.full_name),
+              phone = COALESCE(excluded.phone, profiles.phone),
+              whatsapp = COALESCE(excluded.whatsapp, profiles.whatsapp),
+              updated_at = excluded.updated_at`,
+      args: [
+        context.userId, email, data.full_name ?? null, data.phone ?? null, data.whatsapp ?? null,
+        nowIso(),
+      ],
     });
     return { ok: true };
   });
