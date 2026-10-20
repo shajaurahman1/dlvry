@@ -67,11 +67,28 @@ const corsMiddleware = createMiddleware().server(async ({ next }) => {
 const PUBLIC_WEB_ORIGIN =
   (import.meta.env.VITE_PUBLIC_WEB_ORIGIN as string | undefined) || "https://moveby.in";
 
-const serverFnFetch: typeof fetch = (input, init) => {
-  if (isNativeApp() && typeof input === "string" && input.startsWith("/")) {
-    return fetch(`${PUBLIC_WEB_ORIGIN}${input}`, init);
+const serverFnFetch: typeof fetch = async (input, init) => {
+  const target =
+    isNativeApp() && typeof input === "string" && input.startsWith("/")
+      ? `${PUBLIC_WEB_ORIGIN}${input}`
+      : input;
+  try {
+    return await fetch(target, init);
+  } catch (err) {
+    // A bare "Failed to fetch" tells us nothing about *why* — it's the
+    // generic browser TypeError for any request that never got a response
+    // (bad URL, dropped connection, blocked by something on-device). Attach
+    // the exact URL that was attempted so the next report is actionable
+    // instead of another guess.
+    const url =
+      typeof target === "string"
+        ? target
+        : target instanceof URL
+          ? target.href
+          : (target as Request)?.url ?? "unknown URL";
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new Error(`Couldn't reach ${url} (${reason})`);
   }
-  return fetch(input, init);
 };
 
 export const startInstance = createStart(() => ({
