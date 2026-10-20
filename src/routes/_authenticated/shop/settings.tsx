@@ -4,6 +4,7 @@ import { useEffect, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
 import { getMyShop, upsertMyShop } from "@/lib/shop.functions";
 import { updateProfile } from "@/lib/profile.functions";
+import { errorMessage } from "@/lib/utils";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,7 +98,7 @@ function ShopSettings() {
       toast.success("Shop updated");
       navigate({ to: "/shop" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save changes");
+      toast.error(errorMessage(err, "Failed to save changes"));
     } finally {
       setBusy(false);
     }

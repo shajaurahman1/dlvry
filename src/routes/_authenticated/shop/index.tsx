@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
 import { getMyShop } from "@/lib/shop.functions";
+import { errorMessage } from "@/lib/utils";
 import {
   listShopOrders,
   createOrder as createOrderFn,
@@ -328,7 +329,7 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
       toast.success("Updated");
       onChange();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update");
+      toast.error(errorMessage(err, "Failed to update"));
     } finally {
       setBusy(false);
     }
@@ -341,7 +342,7 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
       toast.success("Request cancelled");
       onChange();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to cancel");
+      toast.error(errorMessage(err, "Failed to cancel"));
     } finally {
       setBusy(false);
     }
@@ -354,7 +355,7 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
       toast.success("Request sent again to nearby partners");
       onChange();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not resend this request.");
+      toast.error(errorMessage(err, "Could not resend this request."));
     } finally {
       setBusy(false);
     }
@@ -479,7 +480,7 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
       toast.success("Searching for a nearby delivery partner…");
       onCreated();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create order");
+      toast.error(errorMessage(err, "Failed to create order"));
     } finally {
       setBusy(false);
     }

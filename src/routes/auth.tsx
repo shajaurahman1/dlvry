@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { z } from "zod";
+import { errorMessage } from "@/lib/utils";
 
 type SearchParams = {
   role?: "shopkeeper" | "driver" | "admin";
@@ -79,7 +80,7 @@ function AuthPage() {
       setPassword("");
       setTab("signin");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Couldn't send the link.");
+      toast.error(errorMessage(err, "Couldn't send the link."));
     } finally {
       setBusy(false);
     }
@@ -121,7 +122,7 @@ function AuthPage() {
         toast.success("Welcome back.");
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Something went wrong";
+      const msg = errorMessage(err, "Something went wrong");
       const lower = msg.toLowerCase();
       if (lower.includes("invalid login") || lower.includes("invalid credentials")) {
         toast.error(tab === "signin" ? "Gmail account not found." : "Wrong email or password");

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DlvryLogo } from "@/components/brand/logo";
 import { Link } from "@tanstack/react-router";
+import { errorMessage } from "@/lib/utils";
 
 export const Route = createFileRoute("/auth-callback")({ head: () => pageHead("Account recovery", "Complete sign-in or reset your MOVEBY password and continue in the app."),
   component: AuthCallbackPage,
@@ -145,7 +146,7 @@ function AuthCallbackPage() {
       setRecoverySuccess(true);
       toast.success("Your password has been updated.");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Couldn't update password.");
+      toast.error(errorMessage(err, "Couldn't update password."));
     } finally {
       setBusy(false);
     }
