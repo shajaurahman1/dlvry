@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo } from "@/lib/orders";
+import { errorMessage } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/")({ head: () => pageHead("Administration", "Manage MOVEBY partners, verification and deliveries."), component: AdminDashboard });
 
@@ -59,7 +60,7 @@ function AdminDashboard() {
       toast.success("Updated");
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update");
+      toast.error(errorMessage(err, "Failed to update"));
     }
   };
   const setDriverStatus = async (id: string, status: "approved" | "rejected" | "suspended") => {
@@ -68,7 +69,7 @@ function AdminDashboard() {
       toast.success("Updated");
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update");
+      toast.error(errorMessage(err, "Failed to update"));
     }
   };
   const setVerification = async (
@@ -80,7 +81,7 @@ function AdminDashboard() {
       toast.success(`Marked ${status}`);
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update");
+      toast.error(errorMessage(err, "Failed to update"));
     }
   };
 
@@ -319,7 +320,7 @@ function SettingsPanel() {
       });
       toast.success("Settings saved");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save settings");
+      toast.error(errorMessage(err, "Failed to save settings"));
     } finally {
       setBusy(false);
     }

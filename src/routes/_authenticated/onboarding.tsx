@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Store, Bike } from "lucide-react";
 import { toast } from "sonner";
+import { errorMessage } from "@/lib/utils";
 import type { PickedLocation } from "@/components/location-picker";
 
 const LocationPicker = lazy(() =>
@@ -151,7 +152,7 @@ function ShopkeeperForm({
       toast.success("You're all set — welcome to MOVEBY");
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to submit");
+      toast.error(errorMessage(err, "Failed to submit"));
     } finally {
       setBusy(false);
     }
@@ -286,7 +287,7 @@ function DriverForm({
       toast.success("You're all set — welcome to MOVEBY");
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to submit");
+      toast.error(errorMessage(err, "Failed to submit"));
     } finally {
       setBusy(false);
     }

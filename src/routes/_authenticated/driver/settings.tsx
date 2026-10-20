@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { getMyDriver, upsertMyDriver } from "@/lib/driver.functions";
 import { updateProfile } from "@/lib/profile.functions";
+import { errorMessage } from "@/lib/utils";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,7 +86,7 @@ function DriverSettings() {
       toast.success("Profile updated");
       navigate({ to: "/driver" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save changes");
+      toast.error(errorMessage(err, "Couldn't save changes"));
     } finally {
       setBusy(false);
     }

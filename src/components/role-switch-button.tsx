@@ -5,6 +5,7 @@ import { ArrowLeftRight } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { switchDashboard } from "@/lib/account.functions";
 import { toast } from "sonner";
+import { errorMessage } from "@/lib/utils";
 
 const LABEL: Record<"shopkeeper" | "driver", string> = {
   shopkeeper: "Switch to Shopkeeper",
@@ -45,7 +46,7 @@ export function RoleSwitchButton({ targetRole }: { targetRole: "shopkeeper" | "d
       navigate({ to: DASHBOARD[targetRole] });
       toast.success(`Switched to ${targetRole === "driver" ? "delivery partner" : "shopkeeper"}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't switch dashboards.");
+      toast.error(errorMessage(err, "Couldn't switch dashboards."));
     } finally {
       setBusy(false);
     }

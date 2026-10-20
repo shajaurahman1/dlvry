@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useLiveLocation } from "@/lib/geo";
 import { LocationGate } from "@/components/location-gate";
+import { errorMessage } from "@/lib/utils";
 import {
   MapPin,
   Navigation,
@@ -297,7 +298,7 @@ function DriverDashboard() {
               void loadOrders();
             } catch (err) {
               setDriver({ ...driver, is_online: !on });
-              toast.error(err instanceof Error ? err.message : "Failed to update");
+              toast.error(errorMessage(err, "Failed to update"));
             }
           }}
         />
@@ -325,7 +326,7 @@ function DriverDashboard() {
                   void loadOrders();
                 } catch (err) {
                   setDriver({ ...driver, search_radius_km: prev });
-                  toast.error(err instanceof Error ? err.message : "Failed to update");
+                  toast.error(errorMessage(err, "Failed to update"));
                 }
               }}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
@@ -494,7 +495,7 @@ function NearbyCard({
       await acceptOrder({ data: { orderId: order.id, lat: coords.lat, lng: coords.lng } });
       toast.success("Order accepted");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not accept this order.");
+      toast.error(errorMessage(err, "Could not accept this order."));
     } finally {
       setBusy(false);
       onAccepted();
@@ -564,9 +565,7 @@ function ActiveOrder({ order, onChange }: { order: Order; onChange: () => void }
       toast.error(
         err instanceof Error && err.message.toLowerCase().includes("code")
           ? "That delivery code doesn't match. Ask the shop for the code."
-          : err instanceof Error
-            ? err.message
-            : "Could not update the order.",
+          : errorMessage(err, "Could not update the order."),
       );
     } finally {
       setBusy(false);
