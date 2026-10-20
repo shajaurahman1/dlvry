@@ -132,17 +132,22 @@ function ShopkeeperForm({
       return toast.error("Shop name and address are required");
     setBusy(true);
     try {
-      await updateProfile({ data: { phone: f.phone, whatsapp: f.whatsapp } });
-      await upsertMyShop({
-        data: {
-          shop_name: f.shop_name,
-          shop_category: f.shop_category,
-          address: f.address,
-          latitude: coords.lat,
-          longitude: coords.lng,
-          gst_number: f.gst_number || undefined,
-        },
-      });
+      // Independent writes (profiles vs. shopkeepers) — run concurrently
+      // instead of waiting on one round trip before starting the next, so a
+      // slow connection only has to survive one wait instead of two.
+      await Promise.all([
+        updateProfile({ data: { phone: f.phone, whatsapp: f.whatsapp } }),
+        upsertMyShop({
+          data: {
+            shop_name: f.shop_name,
+            shop_category: f.shop_category,
+            address: f.address,
+            latitude: coords.lat,
+            longitude: coords.lng,
+            gst_number: f.gst_number || undefined,
+          },
+        }),
+      ]);
       toast.success("You're all set — welcome to MOVEBY");
       onDone();
     } catch (err) {
@@ -265,17 +270,19 @@ function DriverForm({
     e.preventDefault();
     setBusy(true);
     try {
-      await updateProfile({ data: { phone: f.phone, whatsapp: f.whatsapp } });
-      await upsertMyDriver({
-        data: {
-          date_of_birth: f.date_of_birth || undefined,
-          home_address: f.home_address,
-          emergency_contact: f.emergency_contact,
-          vehicle_type: f.vehicle_type,
-          vehicle_number: f.vehicle_number || undefined,
-          available_cash: Number(f.available_cash) || 0,
-        },
-      });
+      await Promise.all([
+        updateProfile({ data: { phone: f.phone, whatsapp: f.whatsapp } }),
+        upsertMyDriver({
+          data: {
+            date_of_birth: f.date_of_birth || undefined,
+            home_address: f.home_address,
+            emergency_contact: f.emergency_contact,
+            vehicle_type: f.vehicle_type,
+            vehicle_number: f.vehicle_number || undefined,
+            available_cash: Number(f.available_cash) || 0,
+          },
+        }),
+      ]);
       toast.success("You're all set — welcome to MOVEBY");
       onDone();
     } catch (err) {
