@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { DlvryLogo } from "@/components/brand/logo";
-import { ArrowRight, Store, Bike } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useEffect } from "react";
 import { StoryWheel } from "@/components/story-wheel";
@@ -56,35 +56,12 @@ function Landing() {
           <p className="mx-auto mt-6 max-w-xl text-base text-muted-foreground md:text-lg">
             Collect payment with delivery charges at the doorstep.
           </p>
-          <div className="mx-auto mt-10 grid max-w-xl gap-4 sm:grid-cols-2">
-            <Link
-              to="/auth"
-              search={{ role: "shopkeeper" }}
-              className="card-soft group flex flex-col items-center gap-3 p-6 text-center transition hover:shadow-elevated"
-            >
-              <Store className="h-8 w-8 text-primary" strokeWidth={1.5} />
-              <span className="text-lg font-bold">I run a shop</span>
-              <span className="text-sm text-muted-foreground">
-                Take orders and dispatch them to nearby delivery partners.
-              </span>
-              <span className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-primary">
-                Get started as a shop <ArrowRight className="h-4 w-4" />
-              </span>
-            </Link>
-            <Link
-              to="/auth"
-              search={{ role: "driver" }}
-              className="card-soft group flex flex-col items-center gap-3 p-6 text-center transition hover:shadow-elevated"
-            >
-              <Bike className="h-8 w-8 text-primary" strokeWidth={1.5} />
-              <span className="text-lg font-bold">I deliver orders</span>
-              <span className="text-sm text-muted-foreground">
-                Accept orders from shops near your live location and earn per delivery.
-              </span>
-              <span className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-primary">
-                Get started as a delivery partner <ArrowRight className="h-4 w-4" />
-              </span>
-            </Link>
+          <div className="mt-10 flex justify-center">
+            <Button asChild className="h-auto rounded-full px-8 py-4 text-base font-semibold">
+              <Link to="/auth">
+                Get started <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
           </div>
         </section>
 
