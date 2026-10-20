@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { isNativeApp } from "@/lib/platform";
 import { initPushNotifications } from "@/lib/push";
 
-const ROOT_PATHS = ["/", "/auth", "/shop", "/driver", "/admin"];
+const ROOT_PATHS = ["/", "/auth", "/onboarding", "/shop", "/driver", "/admin"];
 
 /**
  * Native Android shell behaviour:
