@@ -63,13 +63,16 @@ export async function enableNotifications(requestPermission = true): Promise<Pus
 export function initPushNotifications() {
   if (started || !isNativeApp()) return;
   started = true;
-  // Never prompt on launch. Only restore registration when already permitted.
-  void supabase.auth.getUser().then(({ data }) => {
-    if (data.user) void enableNotifications(false);
-  });
-  supabase.auth.onAuthStateChange((event, session) => {
-    if (event === "SIGNED_IN" && session?.user) setTimeout(() => void enableNotifications(false), 0);
-  });
+  // No Firebase project is configured for this app yet (no google-services.json),
+  // so the native push plugin has nothing to register against. Calling
+  // PushNotifications.register() in that state is a known cause of a hard native
+  // crash on Android (FCM throwing because no FirebaseApp was initialized) — not
+  // a catchable JS error, the whole app process dies. Previously this ran
+  // automatically on every launch and on every sign-in, which is exactly what
+  // was crashing the app right after login. Do nothing here until a real
+  // Firebase project + google-services.json are added; the manual "Enable
+  // notifications" button in settings is left as the only way to reach this
+  // path, and should not be used until then either.
 }
 
 export async function unregisterDevice() {
