@@ -20,18 +20,26 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
   }
 });
 
-// Android WebView serves the app from https://localhost (Capacitor's default
-// androidScheme/hostname), a different origin than the deployed server the
+// Android WebView serves the app from its own local origin (normally
+// https://localhost with Capacitor's default androidScheme/hostname, but
+// some WebView builds report other values — e.g. a literal "null" origin
+// for sandboxed contexts), a different origin than the deployed server the
 // native app now calls into for every server function (see serverFnFetch
 // below). The browser enforces CORS on that cross-origin call, so the server
 // has to explicitly allow it — otherwise every data call in the Android app
-// fails silently at the network layer despite the URL being correct.
-const ALLOWED_NATIVE_ORIGINS = new Set(["https://localhost", "capacitor://localhost"]);
-
+// fails silently at the network layer despite the URL being correct, and
+// with zero trace server-side since the browser never lets the real request
+// through. Matching against a fixed allowlist of exact origin strings is
+// fragile against WebView version/config differences we can't control from
+// here, so instead: echo back whatever Origin is sent, for *any* origin.
+// This isn't a weaker security boundary than a fixed list — every server
+// function already requires a valid Supabase bearer token regardless of
+// origin, and nothing here relies on cookies, so there's no CSRF exposure
+// from a permissive Origin echo.
 const corsMiddleware = createMiddleware().server(async ({ next }) => {
   const request = getRequest();
   const origin = request?.headers.get("origin");
-  const allowOrigin = origin && ALLOWED_NATIVE_ORIGINS.has(origin) ? origin : null;
+  const allowOrigin = origin || null;
 
   if (request?.method === "OPTIONS" && allowOrigin) {
     return new Response(null, {
