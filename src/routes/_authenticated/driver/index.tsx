@@ -64,7 +64,11 @@ interface NearbyOrder {
 }
 
 function DriverDashboard() {
-  const { user, roles, loading } = useAuth();
+  const { user, roles, loading, profile } = useAuth();
+  const firstName =
+    typeof profile?.full_name === "string" && profile.full_name.trim()
+      ? profile.full_name.trim().split(" ")[0]
+      : null;
   const navigate = useNavigate();
   const loc = useLiveLocation(true);
   const [driver, setDriver] = useState<Driver | null>(null);
@@ -238,7 +242,7 @@ function DriverDashboard() {
   }
 
   return (
-    <AppShell subtitle="Live" title="Delivery">
+    <AppShell subtitle={firstName ? `Welcome back, ${firstName}` : "Live"} title="Delivery">
       {driver.approval_status === "blocked" && (
         <div className="mb-6 card-soft border-destructive/40 bg-destructive/10 p-4">
           <p className="text-sm font-medium">Your account has been blocked</p>
