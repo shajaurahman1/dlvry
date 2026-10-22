@@ -42,12 +42,22 @@ const corsMiddleware = createMiddleware().server(async ({ next }) => {
   const allowOrigin = origin || null;
 
   if (request?.method === "OPTIONS" && allowOrigin) {
+    // Echo back whatever headers this exact preflight asked for, instead of
+    // a fixed list. Android's WebView silently injects an X-Requested-With
+    // header (the app's package name) into every request it makes — not
+    // something a desktop/mobile browser does — and a fixed allowlist that
+    // doesn't include it makes the browser block the real request right
+    // after a successful-looking 204 preflight, with nothing visible
+    // anywhere: not a client error, not a server log, since the browser
+    // never sends the real request at all.
+    const requestedHeaders = request.headers.get("access-control-request-headers");
     return new Response(null, {
       status: 204,
       headers: {
         "Access-Control-Allow-Origin": allowOrigin,
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "authorization, content-type, x-tsr-serverFn, accept",
+        "Access-Control-Allow-Headers":
+          requestedHeaders || "authorization, content-type, x-tsr-serverFn, accept",
         "Access-Control-Max-Age": "86400",
       },
     });
