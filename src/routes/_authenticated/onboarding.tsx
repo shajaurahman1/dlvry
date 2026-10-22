@@ -197,7 +197,14 @@ function ShopkeeperForm({
               placeholder="+91…"
             />
           </Field>
-          <Field label="WhatsApp">
+          <Field
+            label="WhatsApp"
+            labelAction={
+              f.phone.trim() && (
+                <SameAsPhoneButton onClick={() => setF((prev) => ({ ...prev, whatsapp: prev.phone }))} />
+              )
+            }
+          >
             <Input
               value={f.whatsapp}
               onChange={(e) => setF({ ...f, whatsapp: e.target.value })}
@@ -303,7 +310,14 @@ function DriverForm({
               required
             />
           </Field>
-          <Field label="WhatsApp">
+          <Field
+            label="WhatsApp"
+            labelAction={
+              f.phone.trim() && (
+                <SameAsPhoneButton onClick={() => setF((prev) => ({ ...prev, whatsapp: prev.phone }))} />
+              )
+            }
+          >
             <Input value={f.whatsapp} onChange={(e) => setF({ ...f, whatsapp: e.target.value })} />
           </Field>
           <Field label="Date of birth">
@@ -313,7 +327,16 @@ function DriverForm({
               onChange={(e) => setF({ ...f, date_of_birth: e.target.value })}
             />
           </Field>
-          <Field label="Emergency contact">
+          <Field
+            label="Emergency contact"
+            labelAction={
+              f.phone.trim() && (
+                <SameAsPhoneButton
+                  onClick={() => setF((prev) => ({ ...prev, emergency_contact: prev.phone }))}
+                />
+              )
+            }
+          >
             <Input
               value={f.emergency_contact}
               onChange={(e) => setF({ ...f, emergency_contact: e.target.value })}
@@ -374,17 +397,34 @@ function DriverForm({
 function Field({
   label,
   hint,
+  labelAction,
   children,
 }: {
   label: string;
   hint?: string;
+  labelAction?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div>
-      <Label className="text-sm font-medium">{label}</Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-sm font-medium">{label}</Label>
+        {labelAction}
+      </div>
       <div className="mt-1.5">{children}</div>
       {hint && <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>}
     </div>
+  );
+}
+
+function SameAsPhoneButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-xs font-medium text-primary hover:underline"
+    >
+      Same as phone
+    </button>
   );
 }
