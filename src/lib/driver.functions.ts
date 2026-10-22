@@ -66,7 +66,7 @@ export const upsertMyDriver = createServerFn({ method: "POST" })
           args: [
             context.userId, data.date_of_birth ?? null, data.home_address ?? null, data.emergency_contact ?? null,
             data.vehicle_type, data.vehicle_number ?? null, data.available_cash ?? 0, data.bank_details ?? null,
-            data.search_radius_km ?? null, data.gov_id_url ?? null, data.selfie_url ?? null, data.licence_url ?? null,
+            data.search_radius_km ?? 3, data.gov_id_url ?? null, data.selfie_url ?? null, data.licence_url ?? null,
             data.rc_url ?? null, data.insurance_url ?? null, data.puc_url ?? null, data.payout_upi ?? null, nowIso(),
           ],
         },
