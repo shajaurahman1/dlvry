@@ -21,8 +21,14 @@ function createTursoClient(): Client {
 let _db: Client | undefined;
 
 export const db = new Proxy({} as Client, {
-  get(_, prop, receiver) {
+  get(_, prop) {
     if (!_db) _db = createTursoClient();
-    return Reflect.get(_db, prop, receiver);
+    const value = Reflect.get(_db, prop, _db);
+    // libsql's client methods (e.g. batch()) read private class fields off
+    // `this` — calling them as `db.batch(...)` through this proxy binds
+    // `this` to the proxy itself unless we rebind to the real client here,
+    // which throws "Cannot read private member ... from an object whose
+    // class did not declare it".
+    return typeof value === "function" ? value.bind(_db) : value;
   },
 });
