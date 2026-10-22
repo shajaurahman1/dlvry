@@ -64,10 +64,19 @@ const corsMiddleware = createMiddleware().server(async ({ next }) => {
   }
 
   const result = await next();
-  if (!allowOrigin) return result;
   const headers = new Headers(result.response.headers);
-  headers.set("Access-Control-Allow-Origin", allowOrigin);
-  headers.append("Vary", "Origin");
+  // Every server-fn response reflects live DB state (e.g. getMe()'s roles
+  // right after a role was just granted) and must never be cached — this
+  // matters more now that native requests go through CapacitorHttp/OkHttp
+  // (see serverFnFetch below), which has its own HTTP cache distinct from
+  // the WebView's, and was serving a stale pre-role-grant response back
+  // on the refetch straight after a successful onboarding submit, bouncing
+  // the user back to the role picker.
+  headers.set("Cache-Control", "no-store");
+  if (allowOrigin) {
+    headers.set("Access-Control-Allow-Origin", allowOrigin);
+    headers.append("Vary", "Origin");
+  }
   return {
     ...result,
     response: new Response(result.response.body, { status: result.response.status, headers }),
@@ -91,7 +100,7 @@ const serverFnFetch: typeof fetch = async (input, init) => {
       ? `${PUBLIC_WEB_ORIGIN}${input}`
       : input;
   try {
-    return await fetch(target, init);
+    return await fetch(target, { ...init, cache: "no-store" });
   } catch (err) {
     // A bare "Failed to fetch" tells us nothing about *why* — it's the
     // generic browser TypeError for any request that never got a response
