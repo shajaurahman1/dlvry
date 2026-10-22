@@ -58,9 +58,15 @@ export default defineConfig({
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     server: { entry: "server" },
     // SPA shell prerender: emits a static dist/client/index.html that boots the client
-    // router. Required for Capacitor, which ships static web assets with no server.
+    // router. Required for Capacitor, which ships static web assets with no server —
+    // but NOT on the real Vercel deployment, which does run a server. Enabling it there
+    // too makes the prerender plugin wrap nitro's `compiled` hook (to set up its preview
+    // server shim), which silently swallows the vercel preset's own `compiled` hook that
+    // writes `.vercel/output/config.json` and `.vc-config.json` — with neither file
+    // written, Vercel has no routing/function config at all and 404s on every request,
+    // including static assets. Scope this to non-Vercel builds (Android/local) only.
     spa: {
-      enabled: true,
+      enabled: !process.env.VERCEL,
       prerender: { crawlLinks: false, outputPath: "/index.html" },
     },
   },
