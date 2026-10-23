@@ -4,6 +4,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import { renderErrorPage } from "./lib/error-page";
 import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 import { isNativeApp } from "@/lib/platform";
+import { nativeAwareFetch } from "@/lib/native-fetch";
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -103,38 +104,8 @@ const serverFnFetch: typeof fetch = async (input, init) => {
     // way).
     target += (target.includes("?") ? "&" : "?") + "_t=" + Date.now();
   }
-  if (isNative && typeof target === "string") {
-    // The WebView's own fetch/CORS has proven unreliable here, but rather
-    // than globally patching window.fetch (CapacitorHttp's config flag —
-    // see capacitor.config.ts for why not), call the native HTTP plugin
-    // directly for just this one call. No CORS, no preflight, no browser
-    // involved at all: a real native OkHttp request, exactly like any other
-    // native Android app would make.
-    const { CapacitorHttp } = await import("@capacitor/core");
-    const headers: Record<string, string> = {};
-    new Headers(init?.headers).forEach((value, key) => {
-      headers[key] = value;
-    });
-    try {
-      const res = await CapacitorHttp.request({
-        url: target,
-        method: (init?.method ?? "GET").toUpperCase(),
-        headers,
-        data: typeof init?.body === "string" ? init.body : undefined,
-      });
-      const resHeaders = new Headers();
-      for (const [key, value] of Object.entries(res.headers ?? {})) {
-        if (typeof value === "string") resHeaders.set(key, value);
-      }
-      const body = typeof res.data === "string" ? res.data : JSON.stringify(res.data);
-      return new Response(body, { status: res.status, headers: resHeaders });
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      throw new Error(`Couldn't reach ${target} (${reason})`);
-    }
-  }
   try {
-    return await fetch(target, { ...init, cache: "no-store" });
+    return await nativeAwareFetch(target, { ...init, cache: "no-store" });
   } catch (err) {
     // A bare "Failed to fetch" tells us nothing about *why* — it's the
     // generic browser TypeError for any request that never got a response
