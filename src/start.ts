@@ -95,10 +95,20 @@ const PUBLIC_WEB_ORIGIN =
   (import.meta.env.VITE_PUBLIC_WEB_ORIGIN as string | undefined) || "https://moveby.in";
 
 const serverFnFetch: typeof fetch = async (input, init) => {
-  const target =
-    isNativeApp() && typeof input === "string" && input.startsWith("/")
-      ? `${PUBLIC_WEB_ORIGIN}${input}`
-      : input;
+  const isNative = isNativeApp() && typeof input === "string" && input.startsWith("/");
+  let target: typeof input | string = isNative ? `${PUBLIC_WEB_ORIGIN}${input}` : input;
+  if (isNative && typeof target === "string") {
+    // Cache-Control: no-store on the response should already stop this, but
+    // that only works if the client actually honors it — CapacitorHttp
+    // routes through Android's native OkHttp, a different cache
+    // implementation than any browser engine, and it was still serving a
+    // stale response for an identical URL called moments apart (same
+    // request, same response, even for a POST granting a role that hadn't
+    // existed a second earlier). A unique query param on every call makes
+    // every URL distinct, which defeats any cache regardless of whether it
+    // honors response headers at all.
+    target += (target.includes("?") ? "&" : "?") + "_t=" + Date.now();
+  }
   try {
     return await fetch(target, { ...init, cache: "no-store" });
   } catch (err) {
