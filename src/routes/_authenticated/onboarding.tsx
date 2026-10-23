@@ -2,7 +2,7 @@ import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
-import { updateProfile } from "@/lib/profile.functions";
+import { getMe, updateProfile } from "@/lib/profile.functions";
 import { upsertMyShop } from "@/lib/shop.functions";
 import { upsertMyDriver } from "@/lib/driver.functions";
 import { AppShell } from "@/components/app-shell";
@@ -133,22 +133,32 @@ function ShopkeeperForm({
       return toast.error("Shop name and address are required");
     setBusy(true);
     try {
-      // Independent writes (profiles vs. shopkeepers) — run concurrently
-      // instead of waiting on one round trip before starting the next, so a
-      // slow connection only has to survive one wait instead of two.
-      await Promise.all([
-        updateProfile({ data: { phone: f.phone, whatsapp: f.whatsapp } }),
-        upsertMyShop({
-          data: {
-            shop_name: f.shop_name,
-            shop_category: f.shop_category,
-            address: f.address,
-            latitude: coords.lat,
-            longitude: coords.lng,
-            gst_number: f.gst_number || undefined,
-          },
-        }),
-      ]);
+      // Sequential, not concurrent: two server-fn calls fired together via
+      // Promise.all were coming back "successful" on native (Capacitor's
+      // native HTTP bridge) without the write actually landing - a bug
+      // report confirmed by a database check right after, with nothing
+      // written despite the success toast. One call at a time removes any
+      // chance of the native bridge mixing up two in-flight responses.
+      await updateProfile({ data: { phone: f.phone, whatsapp: f.whatsapp } });
+      await upsertMyShop({
+        data: {
+          shop_name: f.shop_name,
+          shop_category: f.shop_category,
+          address: f.address,
+          latitude: coords.lat,
+          longitude: coords.lng,
+          gst_number: f.gst_number || undefined,
+        },
+      });
+      // Don't trust the calls above resolving as proof the write landed -
+      // that's exactly what just failed silently. Re-read it back for real
+      // before celebrating.
+      const check = await getMe();
+      if (!check.roles.includes("shopkeeper")) {
+        throw new Error(
+          `Saved but your shop profile isn't showing up yet (roles: ${JSON.stringify(check.roles)}). Please try again.`,
+        );
+      }
       toast.success("You're all set — welcome to MOVEBY");
       onDone();
     } catch (err) {
@@ -278,19 +288,25 @@ function DriverForm({
     e.preventDefault();
     setBusy(true);
     try {
-      await Promise.all([
-        updateProfile({ data: { phone: f.phone, whatsapp: f.whatsapp } }),
-        upsertMyDriver({
-          data: {
-            date_of_birth: f.date_of_birth || undefined,
-            home_address: f.home_address,
-            emergency_contact: f.emergency_contact,
-            vehicle_type: f.vehicle_type,
-            vehicle_number: f.vehicle_number || undefined,
-            available_cash: Number(f.available_cash) || 0,
-          },
-        }),
-      ]);
+      // Sequential, not concurrent — see the matching comment in
+      // ShopkeeperForm's submit for why.
+      await updateProfile({ data: { phone: f.phone, whatsapp: f.whatsapp } });
+      await upsertMyDriver({
+        data: {
+          date_of_birth: f.date_of_birth || undefined,
+          home_address: f.home_address,
+          emergency_contact: f.emergency_contact,
+          vehicle_type: f.vehicle_type,
+          vehicle_number: f.vehicle_number || undefined,
+          available_cash: Number(f.available_cash) || 0,
+        },
+      });
+      const check = await getMe();
+      if (!check.roles.includes("driver")) {
+        throw new Error(
+          `Saved but your driver profile isn't showing up yet (roles: ${JSON.stringify(check.roles)}). Please try again.`,
+        );
+      }
       toast.success("You're all set — welcome to MOVEBY");
       onDone();
     } catch (err) {
