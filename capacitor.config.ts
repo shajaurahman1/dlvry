@@ -4,18 +4,16 @@ const config: CapacitorConfig = {
   appId: "com.moveby.app",
   appName: "MOVEBY",
   webDir: ".output/public",
-  // Every data call the app makes goes cross-origin (the Capacitor WebView's
-  // own local origin -> https://moveby.in), and the WebView's own fetch/XHR
-  // engine has proven unreliable for that on at least one real device even
-  // after fixing every CORS detail server-side could control (origin match,
-  // preflight headers) — it's possible that device's WebView component is
-  // simply too old/non-standard to trust for this. CapacitorHttp routes
-  // window.fetch/XMLHttpRequest through native Android networking instead,
-  // which isn't subject to the WebView's CORS enforcement or its TLS/cert
-  // handling at all.
-  plugins: {
-    CapacitorHttp: { enabled: true },
-  },
+  // NOT enabling CapacitorHttp's global window.fetch/XMLHttpRequest patch
+  // here (plugins.CapacitorHttp.enabled) on purpose: it intercepts *every*
+  // fetch call app-wide, including Supabase's own auth calls — and its
+  // patched fetch routes GET/HEAD/OPTIONS through the WebView's own fetch
+  // via a local proxy while only POST/PUT/etc. go through the native
+  // bridge, an inconsistent split we don't want. Our own server-fn calls
+  // (src/start.ts's serverFnFetch) call the CapacitorHttp *plugin* directly
+  // instead (CapacitorHttp.request(...)), which bypasses the WebView's
+  // fetch/CORS entirely without touching window.fetch or affecting any
+  // other code path in the app.
 };
 
 export default config;
