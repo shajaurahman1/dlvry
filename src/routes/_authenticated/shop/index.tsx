@@ -13,6 +13,7 @@ import {
 } from "@/lib/orders.functions";
 import { RoleSwitchButton } from "@/components/role-switch-button";
 import { AppShell } from "@/components/app-shell";
+import { NotificationPromptCard } from "@/components/notification-prompt-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -187,6 +188,7 @@ function ShopDashboard() {
         </div>
       }
     >
+      <NotificationPromptCard />
       {/* Shop header card */}
       <div className="card-elevated mb-6 flex items-center gap-4 p-5">
         {shop.shop_photo_url ? (
