@@ -20,7 +20,7 @@ const CreateOrderInput = z.object({
   customer_name: z.string().trim().min(1),
   customer_phone: z.string().trim().min(1),
   customer_address: z.string().trim().min(1),
-  order_description: z.string().trim().min(1),
+  order_description: z.string().trim().optional(),
   order_amount: z.number().nonnegative(),
   delivery_charge: z.number().gt(10, "Delivery charge must be greater than ₹10"),
   pickup_notes: z.string().trim().optional(),
@@ -37,6 +37,7 @@ export const createOrder = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { db } = await import("@/integrations/turso/client.server");
     const { requireRole, nowIso } = await import("@/integrations/turso/profile-helpers.server");
+    const { createNotification } = await import("@/integrations/turso/notify.server");
     await requireRole(context.userId, "shopkeeper");
 
     const shopRes = await db.execute({
@@ -66,7 +67,7 @@ export const createOrder = createServerFn({ method: "POST" })
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'searching', ?, ?, ?, ?, ?)`,
       args: [
         id, context.userId, data.customer_name, data.customer_phone, data.customer_address,
-        data.order_description, data.order_amount, data.delivery_charge, data.pickup_notes ?? null,
+        data.order_description ?? "", data.order_amount, data.delivery_charge, data.pickup_notes ?? null,
         data.pickup_lat, data.pickup_lng, data.customer_lat ?? null, data.customer_lng ?? null,
         data.payment_method, otp, expiresAt, radiusKm, now, now,
       ],
@@ -75,6 +76,35 @@ export const createOrder = createServerFn({ method: "POST" })
       sql: "INSERT INTO order_status_history (id, order_id, status, changed_by) VALUES (?, ?, 'searching', ?)",
       args: [crypto.randomUUID(), id, context.userId],
     });
+
+    // Alert every driver who would see this order on their nearby list —
+    // same eligibility rules as getNearbyOrders, applied in reverse.
+    const staleCutoff = new Date(Date.now() - 10 * 60_000).toISOString();
+    const driversRes = await db.execute({
+      sql: `SELECT id, current_lat, current_lng, search_radius_km, available_cash
+            FROM drivers
+            WHERE is_online = 1 AND is_busy = 0 AND approval_status = 'approved'
+              AND verification_status IN ('verified', 'active')
+              AND current_lat IS NOT NULL AND current_lng IS NOT NULL
+              AND (location_updated_at IS NULL OR location_updated_at > ?)`,
+      args: [staleCutoff],
+    });
+    for (const row of driversRes.rows) {
+      const driverRadius = Math.min(radiusKm, Number(row.search_radius_km ?? 3));
+      const distanceKm = haversineKm(
+        data.pickup_lat, data.pickup_lng,
+        Number(row.current_lat), Number(row.current_lng),
+      );
+      if (distanceKm > driverRadius) continue;
+      if (data.payment_method === "cash" && data.order_amount > Number(row.available_cash ?? 0)) continue;
+      await createNotification(
+        row.id as string,
+        "New delivery request",
+        `₹${data.order_amount} pickup ${distanceKm.toFixed(1)} km away`,
+        id,
+      );
+    }
+
     return { id, delivery_otp: otp };
   });
 

@@ -12,6 +12,7 @@ import {
 } from "@/lib/orders.functions";
 import { RoleSwitchButton } from "@/components/role-switch-button";
 import { AppShell } from "@/components/app-shell";
+import { NotificationPromptCard } from "@/components/notification-prompt-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -52,6 +53,7 @@ interface NearbyOrder {
   shop_id: string;
   shop_name: string;
   pickup_address: string;
+  customer_address: string;
   order_amount: number;
   delivery_charge: number;
   total_amount: number;
@@ -75,6 +77,7 @@ function DriverDashboard() {
   const [nearby, setNearby] = useState<NearbyOrder[]>([]);
   const [active, setActive] = useState<Order | null>(null);
   const [history, setHistory] = useState<Order[]>([]);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (loading) return;
@@ -192,7 +195,16 @@ function DriverDashboard() {
       }
     }
     prevNearbyIdsRef.current = currentIds;
+    setDismissed((prev) => {
+      const next = new Set([...prev].filter((id) => currentIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
   }, [nearby, active]);
+
+  const visibleNearby = useMemo(
+    () => nearby.filter((o) => !dismissed.has(o.id)),
+    [nearby, dismissed],
+  );
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -243,6 +255,7 @@ function DriverDashboard() {
 
   return (
     <AppShell subtitle={firstName ? `Welcome back, ${firstName}` : "Live"} title="Delivery">
+      <NotificationPromptCard />
       {driver.approval_status === "blocked" && (
         <div className="mb-6 card-soft border-destructive/40 bg-destructive/10 p-4">
           <p className="text-sm font-medium">Your account has been blocked</p>
@@ -408,7 +421,7 @@ function DriverDashboard() {
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Available requests
             </h2>
-            {nearby.length === 0 ? (
+            {visibleNearby.length === 0 ? (
               <div className="card-soft p-10 text-center">
                 <p className="font-serif-italic text-muted-foreground">
                   {driver.is_online ? "No orders nearby." : "You're offline."}
@@ -421,8 +434,14 @@ function DriverDashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {nearby.map((o) => (
-                  <NearbyCard key={o.id} order={o} onAccepted={loadOrders} coords={coords} />
+                {visibleNearby.map((o) => (
+                  <NearbyCard
+                    key={o.id}
+                    order={o}
+                    onAccepted={loadOrders}
+                    onDismiss={() => setDismissed((prev) => new Set(prev).add(o.id))}
+                    coords={coords}
+                  />
                 ))}
               </div>
             )}
@@ -439,7 +458,10 @@ function DriverDashboard() {
             {history.slice(0, 8).map((o) => (
               <div key={o.id} className="card-soft flex items-center justify-between p-4">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{o.order_description}</p>
+                  <p className="truncate text-sm font-semibold">{o.shop_name || o.order_description}</p>
+                  {o.order_description && o.shop_name && (
+                    <p className="truncate text-xs text-muted-foreground">{o.order_description}</p>
+                  )}
                   <p className="text-[11px] text-muted-foreground">{timeAgo(o.created_at)}</p>
                 </div>
                 <div className="text-right">
@@ -486,10 +508,12 @@ function Stat({
 function NearbyCard({
   order,
   onAccepted,
+  onDismiss,
   coords,
 }: {
   order: NearbyOrder;
   onAccepted: () => void;
+  onDismiss: () => void;
   coords: { lat: number; lng: number };
 }) {
   const [busy, setBusy] = useState(false);
@@ -511,7 +535,10 @@ function NearbyCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-semibold">{order.shop_name}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{order.pickup_address}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Pickup: {order.pickup_address}</p>
+          {order.customer_address && (
+            <p className="mt-0.5 text-xs text-muted-foreground">Deliver to: {order.customer_address}</p>
+          )}
           <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5">
               <Navigation className="h-3 w-3" />
@@ -532,13 +559,23 @@ function NearbyCard({
           <p className="mt-1 text-xs text-primary">+ {fmtINR(order.delivery_charge)} yours</p>
         </div>
       </div>
-      <Button
-        disabled={busy}
-        onClick={accept}
-        className="mt-4 h-10 w-full rounded-full font-semibold"
-      >
-        {busy ? "Accepting…" : "Accept order"}
-      </Button>
+      <div className="mt-4 flex gap-2">
+        <Button
+          disabled={busy}
+          variant="outline"
+          onClick={onDismiss}
+          className="h-10 rounded-full font-semibold"
+        >
+          Not now
+        </Button>
+        <Button
+          disabled={busy}
+          onClick={accept}
+          className="h-10 flex-1 rounded-full font-semibold"
+        >
+          {busy ? "Accepting…" : "Accept order"}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -625,7 +662,7 @@ Thank you.`;
       >
         {ORDER_STATUS_LABEL[order.status]}
       </span>
-      <h3 className="mt-3 text-xl font-bold">{order.order_description}</h3>
+      <h3 className="mt-3 text-xl font-bold">{order.order_description || shop?.shop_name || "Delivery"}</h3>
 
       <div className="mt-5 space-y-4 text-sm">
         {shop && (
