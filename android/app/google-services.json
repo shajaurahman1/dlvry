@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "118354966371",
+    "project_id": "moveby-df098",
+    "storage_bucket": "moveby-df098.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:118354966371:android:e439a39f8dc720ca408556",
+        "android_client_info": {
+          "package_name": "com.movebyapp.android"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDh8E4HNc1zHbuF2U441S22VOVNEQfPsqs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
