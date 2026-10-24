@@ -7,7 +7,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.moveby.app"
+    namespace = "com.movebyapp.android"
     compileSdk = rootProject.ext.compileSdkVersion
 
     signingConfigs {
@@ -33,7 +33,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.moveby.app"
+        applicationId "com.movebyapp.android"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

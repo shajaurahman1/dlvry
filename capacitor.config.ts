@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "com.moveby.app",
+  appId: "com.movebyapp.android",
   appName: "MOVEBY",
   webDir: ".output/public",
   // NOT enabling CapacitorHttp's global window.fetch/XMLHttpRequest patch
