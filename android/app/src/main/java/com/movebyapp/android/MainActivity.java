@@ -1,4 +1,4 @@
-package com.moveby.app;
+package com.movebyapp.android;
 
 import com.getcapacitor.BridgeActivity;
 

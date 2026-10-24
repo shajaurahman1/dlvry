@@ -175,7 +175,7 @@ function AuthCallbackPage() {
                     type="button"
                     onClick={() => {
                       setShowAppThanks(true);
-                      window.location.href = "com.moveby.app://callback";
+                      window.location.href = "com.movebyapp.android://callback";
                     }}
                     className="h-11 w-full rounded-full text-sm font-semibold"
                   >
