@@ -55,7 +55,14 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
     const authHeader = request.headers.get("authorization");
 
     if (!authHeader) {
-      throw new Error("Unauthorized: No authorization header provided");
+      // Every prior fix assumed the client sends this correctly and it gets
+      // lost in transit somewhere. List what the server actually received
+      // instead of guessing again — if "authorization" genuinely isn't
+      // among these, something between the client and here is stripping or
+      // renaming it; if it IS there under an unexpected form, that's a
+      // completely different bug.
+      const received = [...request.headers.keys()].sort().join(", ");
+      throw new Error(`Unauthorized: No authorization header provided. Headers received: [${received}]`);
     }
 
     if (!authHeader.startsWith("Bearer ")) {
