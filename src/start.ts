@@ -111,8 +111,28 @@ const serverFnFetch: typeof fetch = async (input, init) => {
     // way).
     target += (target.includes("?") ? "&" : "?") + "_t=" + Date.now();
   }
+  let finalInit = init;
+  if (isNative) {
+    // attachSupabaseAuth's functionMiddleware DOES construct the right
+    // Authorization header client-side (confirmed: its own diagnostic for
+    // "no token" never fires), yet the server was consistently receiving a
+    // full, otherwise-correct header list with authorization specifically
+    // absent, across every transport tried. Wherever that header is getting
+    // separated from the rest on native, stop depending on the framework's
+    // middleware-to-fetch header plumbing for it and attach it directly,
+    // here, immediately before the request leaves — as late and as
+    // unavoidably as possible.
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (token) {
+      const headers = new Headers(init?.headers);
+      headers.set("Authorization", `Bearer ${token}`);
+      finalInit = { ...init, headers };
+    }
+  }
   try {
-    return await nativeAwareFetch(target, { ...init, cache: "no-store" });
+    return await nativeAwareFetch(target, { ...finalInit, cache: "no-store" });
   } catch (err) {
     // A bare "Failed to fetch" tells us nothing about *why* — it's the
     // generic browser TypeError for any request that never got a response
