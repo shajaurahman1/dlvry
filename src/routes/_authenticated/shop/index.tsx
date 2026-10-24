@@ -58,6 +58,7 @@ type Order = Awaited<ReturnType<typeof listShopOrders>>[number] & {
   id: string; status: string; created_at: string; expires_at: string | null; delivery_otp: string | null;
   order_description: string; customer_name: string; customer_phone: string; payment_method: string;
   total_amount: number; order_amount: number; delivery_charge: number; cancel_reason?: string | null;
+  driver_id?: string | null; driver_name?: string | null; driver_phone?: string | null;
 };
 type Shop = NonNullable<Awaited<ReturnType<typeof getMyShop>>> & {
   id: string; shop_name: string; shop_category: string; shop_photo_url: string | null;
@@ -388,6 +389,19 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
             {searching && mins !== null && ` · expires in ${mins}m`}
             {` · ${order.payment_method.toUpperCase()}`}
           </p>
+          {order.driver_id && !searching && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Delivery partner: {order.driver_name || "—"}
+              {order.driver_phone && (
+                <>
+                  {" · "}
+                  <a href={`tel:${order.driver_phone}`} className="underline-offset-2 hover:underline">
+                    {order.driver_phone}
+                  </a>
+                </>
+              )}
+            </p>
+          )}
         </div>
         <div className="text-right">
           <span

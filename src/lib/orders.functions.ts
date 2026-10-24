@@ -85,7 +85,10 @@ export const listShopOrders = createServerFn({ method: "GET" })
     await requireRole(context.userId, "shopkeeper");
     const { db } = await import("@/integrations/turso/client.server");
     const res = await db.execute({
-      sql: "SELECT * FROM orders WHERE shop_id = ? ORDER BY created_at DESC LIMIT 200",
+      sql: `SELECT o.*, p.full_name AS driver_name, p.phone AS driver_phone
+            FROM orders o
+            LEFT JOIN profiles p ON p.id = o.driver_id
+            WHERE o.shop_id = ? ORDER BY o.created_at DESC LIMIT 200`,
       args: [context.userId],
     });
     return toPlainRows(res.rows);
