@@ -92,8 +92,15 @@ const corsMiddleware = createMiddleware().server(async ({ next }) => {
 // path resolves against the device's local asset origin and 404s. Inside
 // the native shell, rewrite every server-fn call to the deployed web
 // origin instead, which does have the server running.
+//
+// Must be the www. form: moveby.in (bare apex) 308-redirects to
+// www.moveby.in, and OkHttp/CapacitorHttp drops the Authorization header
+// across that redirect — every native POST was reaching the server with no
+// auth header at all despite the client attaching one correctly. Pointing
+// at the non-redirecting host avoids the redirect, and the header loss,
+// entirely.
 const PUBLIC_WEB_ORIGIN =
-  (import.meta.env.VITE_PUBLIC_WEB_ORIGIN as string | undefined) || "https://moveby.in";
+  (import.meta.env.VITE_PUBLIC_WEB_ORIGIN as string | undefined) || "https://www.moveby.in";
 
 const serverFnFetch: typeof fetch = async (input, init) => {
   const isNative = isNativeApp() && typeof input === "string" && input.startsWith("/");
