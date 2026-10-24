@@ -42,9 +42,15 @@ jobs:
           # at runtime to hit this deployed origin instead of a relative path — see
           # src/start.ts. Turso credentials are never needed here: they're read only
           # by the server build that actually runs on Vercel. This must be the real
-          # production domain (moveby.in) — dlvry-nine.vercel.app is a different,
-          # unrelated Vercel project and has none of this app's server functions.
-          VITE_PUBLIC_WEB_ORIGIN: "https://moveby.in"
+          # production domain — dlvry-nine.vercel.app is a different, unrelated
+          # Vercel project and has none of this app's server functions. Uses the
+          # www. form specifically: moveby.in (bare apex) 308-redirects to
+          # www.moveby.in, and OkHttp/CapacitorHttp drops the Authorization header
+          # across that redirect, so every native POST was arriving at the server
+          # with no auth header at all despite the client sending one correctly —
+          # pointing straight at the non-redirecting host avoids the redirect, and
+          # the header loss, entirely.
+          VITE_PUBLIC_WEB_ORIGIN: "https://www.moveby.in"
         run: npm run build
 
       - name: Sync Capacitor
