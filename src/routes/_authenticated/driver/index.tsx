@@ -119,6 +119,12 @@ function DriverDashboard() {
     void pushLocation();
   }, [locReady, locLat, locLng, pushLocation]);
 
+  // Skip setState (and the re-render it triggers) when a poll comes back
+  // with the exact same data as last time — on a 4s nearby-list poll that's
+  // most ticks, so this is most of what "smoother" meant: without it every
+  // tick re-renders every card even when nothing on screen actually changed.
+  const prevFetchSigRef = useRef<{ nearby: string; mine: string }>({ nearby: "", mine: "" });
+
   const loadOrders = useCallback(async () => {
     if (!user) return;
     void expireStaleOrders().catch(() => {});
@@ -127,15 +133,28 @@ function DriverDashboard() {
       c ? getNearbyOrders({ data: { lat: c.lat, lng: c.lng } }) : Promise.resolve([]),
       listDriverOrders(),
     ]);
-    setNearby(
-      (nearbyRes as unknown as NearbyOrder[]).map((o) => ({
-        ...o,
-        pickup_address: (o as unknown as { shop_address?: string }).shop_address ?? "",
-      })),
+    const nearbyMapped = (nearbyRes as unknown as NearbyOrder[]).map((o) => ({
+      ...o,
+      pickup_address: (o as unknown as { shop_address?: string }).shop_address ?? "",
+    }));
+    // Rounded to the precision actually shown on screen (1 decimal km) —
+    // otherwise GPS jitter changes distance_km by fractions of a metre every
+    // poll and defeats the point of comparing at all.
+    const nearbySig = JSON.stringify(
+      nearbyMapped.map((o) => ({ ...o, distance_km: Math.round(o.distance_km * 10) })),
     );
+    if (nearbySig !== prevFetchSigRef.current.nearby) {
+      prevFetchSigRef.current.nearby = nearbySig;
+      setNearby(nearbyMapped);
+    }
+
     const mineOrders = mine as unknown as Order[];
-    setActive(mineOrders.find((o) => o.status !== "delivered" && o.status !== "cancelled") ?? null);
-    setHistory(mineOrders.slice(0, 50));
+    const mineSig = JSON.stringify(mineOrders);
+    if (mineSig !== prevFetchSigRef.current.mine) {
+      prevFetchSigRef.current.mine = mineSig;
+      setActive(mineOrders.find((o) => o.status !== "delivered" && o.status !== "cancelled") ?? null);
+      setHistory(mineOrders.slice(0, 50));
+    }
   }, [user]);
 
   const prevNearbyIdsRef = useRef<Set<string>>(new Set());
@@ -143,11 +162,18 @@ function DriverDashboard() {
   useEffect(() => {
     if (!user) return;
     void loadOrders();
-    // No realtime push on Turso — poll is the source of truth.
-    const iv = setInterval(() => {
-      void pushLocation();
-      void loadOrders();
-    }, 10000);
+    // No realtime push on Turso — poll is the source of truth. Polling
+    // faster while browsing nearby requests (not mid-delivery) shrinks the
+    // window where a driver can still see — or tap "Accept" on — a request
+    // another driver just took; a true instant disappearance would need a
+    // realtime channel Turso doesn't give us.
+    const iv = setInterval(
+      () => {
+        void pushLocation();
+        void loadOrders();
+      },
+      active ? 10000 : 4000,
+    );
     const onResume = () => {
       if (document.visibilityState === "visible") {
         void pushLocation();
@@ -159,7 +185,7 @@ function DriverDashboard() {
       clearInterval(iv);
       document.removeEventListener("visibilitychange", onResume);
     };
-  }, [loadOrders, pushLocation, user]);
+  }, [loadOrders, pushLocation, user, active]);
 
   // Refetch as soon as we have (or move) a fix.
   useEffect(() => {

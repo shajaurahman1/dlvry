@@ -297,6 +297,8 @@ function SettingsPanel() {
   const [radius, setRadius] = useState("3");
   const [expiry, setExpiry] = useState("10");
   const [support, setSupport] = useState("");
+  const [latestVersion, setLatestVersion] = useState("0");
+  const [updateMessage, setUpdateMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -305,6 +307,8 @@ function SettingsPanel() {
       setRadius(String(data.delivery_radius_km));
       setExpiry(String(data.request_expiry_minutes));
       setSupport((data.support_number as string | null) ?? "");
+      setLatestVersion(String(data.latest_version_code ?? 0));
+      setUpdateMessage((data.update_message as string | null) ?? "");
     });
   }, []);
 
@@ -316,6 +320,8 @@ function SettingsPanel() {
           delivery_radius_km: Number(radius) || 3,
           request_expiry_minutes: Number(expiry) || 10,
           support_number: support || undefined,
+          latest_version_code: Number(latestVersion) || 0,
+          update_message: updateMessage || undefined,
         },
       });
       toast.success("Settings saved");
@@ -358,6 +364,30 @@ function SettingsPanel() {
           value={support}
           onChange={(e) => setSupport(e.target.value)}
           placeholder="+91…"
+          className="mt-1.5"
+        />
+      </div>
+      <div className="border-t border-border pt-4">
+        <label className="text-sm font-medium">Latest app version code</label>
+        <Input
+          type="number"
+          min="0"
+          value={latestVersion}
+          onChange={(e) => setLatestVersion(e.target.value)}
+          className="mt-1.5"
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Set this to the versionCode you just published on Play Console. Anyone on an older
+          build gets an "update available" banner with a Play Store link. Leave at 0 to never
+          prompt.
+        </p>
+      </div>
+      <div>
+        <label className="text-sm font-medium">Update message (optional)</label>
+        <Input
+          value={updateMessage}
+          onChange={(e) => setUpdateMessage(e.target.value)}
+          placeholder="A new version of MOVEBY is available."
           className="mt-1.5"
         />
       </div>

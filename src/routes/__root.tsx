@@ -17,6 +17,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { MadeByFooter } from "@/components/site-footer";
 import { useNativeShell } from "@/lib/native";
 import { SplashScreen } from "@/components/brand/splash-screen";
+import { UpdateChecker } from "@/components/update-checker";
 
 function NotFoundComponent() {
   return (
@@ -118,6 +119,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <SplashScreen />
+        <UpdateChecker />
         <Outlet />
         <MadeByFooter />
         <Toaster position="top-center" />

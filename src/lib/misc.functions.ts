@@ -148,6 +148,8 @@ const SettingsInput = z.object({
   request_expiry_minutes: z.number().int().positive().optional(),
   support_number: z.string().trim().optional(),
   notifications_enabled: z.boolean().optional(),
+  latest_version_code: z.number().int().nonnegative().optional(),
+  update_message: z.string().trim().optional(),
 });
 
 export const updateSettings = createServerFn({ method: "POST" })
@@ -163,13 +165,30 @@ export const updateSettings = createServerFn({ method: "POST" })
               request_expiry_minutes = COALESCE(?, request_expiry_minutes),
               support_number = COALESCE(?, support_number),
               notifications_enabled = COALESCE(?, notifications_enabled),
+              latest_version_code = COALESCE(?, latest_version_code),
+              update_message = COALESCE(?, update_message),
               updated_at = ? WHERE id = 1`,
       args: [
         data.delivery_radius_km ?? null, data.request_expiry_minutes ?? null, data.support_number ?? null,
-        data.notifications_enabled === undefined ? null : data.notifications_enabled ? 1 : 0, nowIso(),
+        data.notifications_enabled === undefined ? null : data.notifications_enabled ? 1 : 0,
+        data.latest_version_code ?? null, data.update_message ?? null, nowIso(),
       ],
     });
     return { ok: true };
+  });
+
+/** Public, unauthenticated on purpose — the installed app needs to check
+ *  this before (or without) anyone being signed in. Only ever exposes the
+ *  two version-check fields, never the rest of app_settings. */
+export const getAppVersionInfo = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { db } = await import("@/integrations/turso/client.server");
+    const res = await db.execute("SELECT latest_version_code, update_message FROM app_settings WHERE id = 1");
+    const row = res.rows[0];
+    return {
+      latest_version_code: Number(row?.latest_version_code ?? 0),
+      update_message: (row?.update_message as string | null) ?? null,
+    };
   });
 
 export const listAdminLogs = createServerFn({ method: "GET" })
