@@ -170,25 +170,23 @@ function ShopDashboard() {
   }
 
   return (
-    <AppShell
-      subtitle={shop.shop_name}
-      title="Dispatch"
-      actions={
-        <div className="flex items-center gap-2">
-          <RoleSwitchButton targetRole="driver" />
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-11 w-11 rounded-full"
-            onClick={() => navigate({ to: "/shop/settings" })}
-            aria-label="Edit shop"
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
-        </div>
-      }
-    >
+    <AppShell subtitle={shop.shop_name} title="Dispatch">
       <NotificationPromptCard />
+      {/* Kept out of AppShell's title row (which doesn't wrap) so these
+          don't get squeezed next to "Dispatch" and force the page to
+          scroll sideways on narrow screens. */}
+      <div className="mb-6 flex flex-wrap justify-end gap-2">
+        <RoleSwitchButton targetRole="driver" />
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-11 w-11 rounded-full"
+          onClick={() => navigate({ to: "/shop/settings" })}
+          aria-label="Edit shop"
+        >
+          <Settings className="h-4 w-4" />
+        </Button>
+      </div>
       {/* Shop header card */}
       <div className="card-elevated mb-6 flex items-center gap-4 p-5">
         {shop.shop_photo_url ? (

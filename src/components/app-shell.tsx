@@ -20,7 +20,7 @@ export function AppShell({
   const { signOut } = useAuth();
   const navigate = useNavigate();
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen overflow-x-hidden bg-background">
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-2 px-5 py-4">
           <div className="flex items-center gap-2">
@@ -45,8 +45,8 @@ export function AppShell({
       </header>
       <main className="mx-auto max-w-4xl px-5 pb-24 pt-8">
         {(title || actions) && (
-          <div className="mb-8 flex items-end justify-between gap-4">
-            <div>
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+            <div className="min-w-0">
               {subtitle && (
                 <p className="font-serif-italic text-sm text-muted-foreground">{subtitle}</p>
               )}

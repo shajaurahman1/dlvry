@@ -359,6 +359,53 @@ export const confirmPayment = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Lets the assigned driver back out before they've paid the shop (after
+ *  that point the order is too far along to just release). Puts the order
+ *  back up for grabs instead of cancelling it outright — the shop still
+ *  wants it delivered, just not by this driver. */
+export const driverCancelOrder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { orderId: string; reason: string }) => input)
+  .handler(async ({ context, data }) => {
+    const { db } = await import("@/integrations/turso/client.server");
+    const { createNotification } = await import("@/integrations/turso/notify.server");
+    const order = (await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [data.orderId] })).rows[0];
+    if (!order) throw new Error("Order not found.");
+    if (order.driver_id !== context.userId) throw new Error("You're not assigned to this order.");
+    if (!["going_to_shop", "arrived_at_shop", "reached_shop"].includes(String(order.status))) {
+      throw new Error("You can no longer cancel — payment has already been confirmed.");
+    }
+
+    const settingsRes = await db.execute("SELECT request_expiry_minutes FROM app_settings WHERE id = 1");
+    const expiryMin = Number(settingsRes.rows[0]?.request_expiry_minutes ?? 10);
+    const expiresAt = new Date(Date.now() + expiryMin * 60_000).toISOString();
+    const now = new Date().toISOString();
+
+    const tx = await db.transaction("write");
+    try {
+      await tx.execute({
+        sql: `UPDATE orders SET status = 'searching', driver_id = NULL, accepted_at = NULL,
+                delivery_otp = ?, expires_at = ?, updated_at = ? WHERE id = ?`,
+        args: [String(Math.floor(1000 + Math.random() * 9000)), expiresAt, now, data.orderId],
+      });
+      await tx.execute({ sql: "UPDATE drivers SET is_busy = 0 WHERE id = ?", args: [context.userId] });
+      await tx.execute({
+        sql: "INSERT INTO order_status_history (id, order_id, status, changed_by) VALUES (?, ?, 'searching', ?)",
+        args: [crypto.randomUUID(), data.orderId, context.userId],
+      });
+      await tx.commit();
+    } finally {
+      tx.close();
+    }
+    await createNotification(
+      String(order.shop_id),
+      "Delivery partner cancelled",
+      `Your delivery partner backed out before pickup (${data.reason}). We're finding another partner.`,
+      data.orderId,
+    );
+    return { ok: true };
+  });
+
 export const cancelOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: { orderId: string; reason: string }) => input)
