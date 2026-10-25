@@ -36,6 +36,7 @@ import {
   Truck,
   CalendarDays,
   RefreshCw,
+  MessageCircle,
 } from "lucide-react";
 import {
   ORDER_STATUS_LABEL,
@@ -366,6 +367,16 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
   const mins = minutesLeft(order.expires_at);
   const showOtp = !TERMINAL_STATUSES.includes(order.status) && !searching && order.delivery_otp;
 
+  const whatsAppOtp = () => {
+    if (!order.customer_phone?.trim()) {
+      toast.error("Customer number not given");
+      return;
+    }
+    const msg = `Hi ${order.customer_name}, your MOVEBY delivery code is *${order.delivery_otp}*. Please share it with the delivery partner when your order arrives.`;
+    const phone = order.customer_phone.replace(/[^\d]/g, "");
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+  };
+
   const nextAction = (() => {
     if (order.status === "arrived_at_shop" || order.status === "reached_shop")
       return { label: "Confirm payment received", action: confirm };
@@ -417,13 +428,22 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
       </div>
 
       {showOtp && (
-        <div className="mt-4 flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3">
-          <span className="text-xs text-muted-foreground">
-            Delivery code — give this to the customer
-          </span>
-          <span className="text-lg font-black tracking-[0.3em] text-primary">
-            {order.delivery_otp}
-          </span>
+        <div className="mt-4 rounded-xl bg-primary/5 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              Delivery code — give this to the customer
+            </span>
+            <span className="text-lg font-black tracking-[0.3em] text-primary">
+              {order.delivery_otp}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={whatsAppOtp}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-card px-3 py-1.5 text-xs font-medium text-primary"
+          >
+            <MessageCircle className="h-3.5 w-3.5" /> Send code to customer
+          </button>
         </div>
       )}
 
