@@ -8,6 +8,7 @@ import {
   listDriverOrders,
   acceptOrder,
   advanceOrder,
+  driverCancelOrder,
   expireStaleOrders,
 } from "@/lib/orders.functions";
 import { RoleSwitchButton } from "@/components/role-switch-button";
@@ -78,6 +79,7 @@ function DriverDashboard() {
   const [active, setActive] = useState<Order | null>(null);
   const [history, setHistory] = useState<Order[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [justDelivered, setJustDelivered] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -255,7 +257,8 @@ function DriverDashboard() {
 
   return (
     <AppShell subtitle={firstName ? `Welcome back, ${firstName}` : "Live"} title="Delivery">
-      <NotificationPromptCard />
+      <DeliverySuccessOverlay show={justDelivered} onDone={() => setJustDelivered(false)} />
+      {!active && <NotificationPromptCard />}
       {driver.approval_status === "blocked" && (
         <div className="mb-6 card-soft border-destructive/40 bg-destructive/10 p-4">
           <p className="text-sm font-medium">Your account has been blocked</p>
@@ -283,6 +286,11 @@ function DriverDashboard() {
         </div>
       )}
 
+      {/* Everything below is hidden while a delivery is active — one focused
+          screen for the job at hand instead of a dashboard the driver could
+          wander off into mid-delivery. */}
+      {!active && (
+      <>
       {/* Availability */}
       <div className="card-elevated mb-6 flex items-center gap-4 p-5">
         <div
@@ -412,10 +420,16 @@ function DriverDashboard() {
           icon={<TrendingUp className="h-4 w-4" />}
         />
       </div>
+      </>
+      )}
 
       <div className="mt-8">
         {active ? (
-          <ActiveOrder order={active} onChange={loadOrders} />
+          <ActiveOrder
+            order={active}
+            onChange={loadOrders}
+            onDelivered={() => setJustDelivered(true)}
+          />
         ) : (
           <>
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -449,7 +463,7 @@ function DriverDashboard() {
         )}
       </div>
 
-      {history.length > 0 && (
+      {!active && history.length > 0 && (
         <div className="mt-10">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Recent deliveries
@@ -580,10 +594,19 @@ function NearbyCard({
   );
 }
 
-function ActiveOrder({ order, onChange }: { order: Order; onChange: () => void }) {
+function ActiveOrder({
+  order,
+  onChange,
+  onDelivered,
+}: {
+  order: Order;
+  onChange: () => void;
+  onDelivered: () => void;
+}) {
   const { profile } = useAuth();
   const [busy, setBusy] = useState(false);
   const [otp, setOtp] = useState("");
+  const canCancel = ["going_to_shop", "arrived_at_shop", "reached_shop"].includes(order.status);
   const shop = order.shop_name
     ? { shop_name: order.shop_name, address: order.shop_address ?? "", phone: order.shop_phone ?? null }
     : null;
@@ -601,6 +624,7 @@ function ActiveOrder({ order, onChange }: { order: Order; onChange: () => void }
     setBusy(true);
     try {
       await advanceOrder({ data: { orderId: order.id, status, otp: code } });
+      if (status === "delivered") onDelivered();
       onChange();
     } catch (err) {
       toast.error(
@@ -608,6 +632,19 @@ function ActiveOrder({ order, onChange }: { order: Order; onChange: () => void }
           ? "That delivery code doesn't match. Ask the shop for the code."
           : errorMessage(err, "Could not update the order."),
       );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancel = async () => {
+    setBusy(true);
+    try {
+      await driverCancelOrder({ data: { orderId: order.id, reason: "Cancelled by delivery partner" } });
+      toast.success("Order cancelled");
+      onChange();
+    } catch (err) {
+      toast.error(errorMessage(err, "Could not cancel this order."));
     } finally {
       setBusy(false);
     }
@@ -782,6 +819,62 @@ Thank you.`;
             </div>
           </div>
         )}
+        {canCancel && (
+          <Button
+            disabled={busy}
+            variant="outline"
+            className="h-10 w-full rounded-full text-sm font-semibold text-destructive"
+            onClick={cancel}
+          >
+            Cancel — can't do this delivery
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Full-screen success moment after marking an order delivered — a brief,
+ *  unmissable confirmation (like a payment app's success screen) before
+ *  handing the driver back to their dashboard. */
+function DeliverySuccessOverlay({ show, onDone }: { show: boolean; onDone: () => void }) {
+  useEffect(() => {
+    if (!show) return;
+    try {
+      const AC =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AC();
+      const chime = (freq: number, start: number, dur: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = freq;
+        osc.connect(gain).connect(ctx.destination);
+        const t = ctx.currentTime + start;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.12, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        osc.start(t);
+        osc.stop(t + dur + 0.05);
+      };
+      chime(880, 0, 0.18);
+      chime(1318.5, 0.16, 0.32);
+      setTimeout(() => ctx.close(), 700);
+    } catch {
+      /* ignore — silent on browsers that block autoplay */
+    }
+    const timer = setTimeout(onDone, 1800);
+    return () => clearTimeout(timer);
+  }, [show, onDone]);
+
+  if (!show) return null;
+  return (
+    <div className="fixed inset-0 z-[100] grid animate-in fade-in place-items-center bg-background/97 backdrop-blur-sm">
+      <div className="flex flex-col items-center gap-4">
+        <div className="grid h-24 w-24 animate-in zoom-in place-items-center rounded-full bg-primary/15 text-primary duration-300">
+          <CheckCircle2 className="h-14 w-14" strokeWidth={2.5} />
+        </div>
+        <p className="text-xl font-black">Delivered!</p>
       </div>
     </div>
   );
