@@ -147,6 +147,7 @@ function ShopkeeperForm({
           address: f.address,
           latitude: coords.lat,
           longitude: coords.lng,
+          shop_phone: f.phone || undefined,
           gst_number: f.gst_number || undefined,
         },
       });
