@@ -238,8 +238,12 @@ function ShopSettings() {
           <LocationPicker
             value={coords}
             onChange={(loc) => {
+              // Don't let repositioning the map pin silently overwrite the
+              // shop's own typed address — only offer to fill it in if it's
+              // actually empty (matches onboarding's behavior).
               setCoords(loc);
-              if (loc.address) setForm((prev) => ({ ...prev, address: loc.address! }));
+              if (loc.address && !form.address.trim())
+                setForm((prev) => ({ ...prev, address: loc.address! }));
             }}
           />
         </Suspense>

@@ -461,7 +461,7 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
     customer_address: "",
     order_description: "",
     order_amount: "",
-    delivery_charge: "30",
+    delivery_charge: "",
     pickup_notes: "",
     payment_method: "cash",
   });
@@ -546,7 +546,7 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
           }}
         />
       </Suspense>
-      <FormField label="Order description">
+      <FormField label="Order description (optional)">
         <Textarea
           rows={2}
           value={f.order_description}
@@ -563,10 +563,11 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
             required
           />
         </FormField>
-        <FormField label="Delivery charge (₹)">
+        <FormField label="Delivery charge (₹, above 10)">
           <Input
             type="number"
-            min="0"
+            min="11"
+            placeholder="e.g. 30"
             value={f.delivery_charge}
             onChange={(e) => setF({ ...f, delivery_charge: e.target.value })}
             required
