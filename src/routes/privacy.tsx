@@ -94,8 +94,8 @@ function PrivacyPage() {
             <p>
               We keep account and order data for as long as your account is active, and as needed to
               resolve disputes or meet legal obligations. To request deletion of your account and
-              data, email us at{" "}
-              <a href="mailto:moveby.in@gmail.com" className="underline">moveby.in@gmail.com</a>.
+              data, see{" "}
+              <Link to="/delete-account" className="underline">how to delete your account</Link>.
             </p>
           </Section>
 

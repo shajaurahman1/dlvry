@@ -8,6 +8,7 @@ export function MadeByFooter() {
         <a href="https://moveby.in" target="_blank" rel="noopener noreferrer" className="hover:text-primary">moveby.in</a>
         <Link to="/privacy" className="hover:text-primary">Privacy Policy</Link>
         <Link to="/terms" className="hover:text-primary">Terms &amp; Conditions</Link>
+        <Link to="/delete-account" className="hover:text-primary">Delete account</Link>
       </div>
     </footer>
   );
