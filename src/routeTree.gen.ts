@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthCallbackRouteImport } from './routes/auth-callback'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
@@ -39,6 +40,11 @@ const AuthRoute = AuthRouteImport.update({
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth-callback',
   path: '/auth-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TermsRoute = TermsRouteImport.update({
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/auth-callback': typeof AuthCallbackRoute
+  '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/driver/settings': typeof AuthenticatedDriverSettingsRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/auth-callback': typeof AuthCallbackRoute
+  '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/driver/settings': typeof AuthenticatedDriverSettingsRoute
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/auth-callback': typeof AuthCallbackRoute
+  '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/driver/settings': typeof AuthenticatedDriverSettingsRoute
@@ -132,6 +141,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/auth-callback'
+    | '/privacy'
     | '/terms'
     | '/onboarding'
     | '/driver/settings'
@@ -145,6 +155,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/auth-callback'
+    | '/privacy'
     | '/terms'
     | '/onboarding'
     | '/driver/settings'
@@ -159,6 +170,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/auth-callback'
+    | '/privacy'
     | '/terms'
     | '/_authenticated/onboarding'
     | '/_authenticated/driver/settings'
@@ -174,6 +186,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   ApiPublicPushSendRoute: typeof ApiPublicPushSendRoute
 }
@@ -206,6 +219,13 @@ declare module '@tanstack/react-router' {
       path: '/auth-callback'
       fullPath: '/auth-callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/terms': {
@@ -293,6 +313,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   ApiPublicPushSendRoute: ApiPublicPushSendRoute,
 }

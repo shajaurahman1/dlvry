@@ -229,6 +229,13 @@ function AuthPage() {
                     className="font-medium text-primary underline underline-offset-2"
                   >
                     Terms &amp; Conditions
+                  </Link>{" "}
+                  and{" "}
+                  <Link
+                    to="/privacy"
+                    className="font-medium text-primary underline underline-offset-2"
+                  >
+                    Privacy Policy
                   </Link>
                   .
                 </span>
@@ -270,6 +277,10 @@ function AuthPage() {
         <p className="mt-6 text-center text-xs text-muted-foreground">
           <Link to="/terms" className="underline underline-offset-2">
             Terms &amp; Conditions
+          </Link>{" "}
+          ·{" "}
+          <Link to="/privacy" className="underline underline-offset-2">
+            Privacy Policy
           </Link>
         </p>
       </div>
