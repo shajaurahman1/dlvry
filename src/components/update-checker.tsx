@@ -17,7 +17,8 @@ export function UpdateChecker() {
 
   useEffect(() => {
     if (!isNativeApp()) return;
-    void (async () => {
+
+    const check = async () => {
       try {
         const { App } = await import("@capacitor/app");
         const info = await App.getInfo();
@@ -25,11 +26,24 @@ export function UpdateChecker() {
         const latest = await getAppVersionInfo();
         if (Number.isFinite(installed) && latest.latest_version_code > installed) {
           setMessage(latest.update_message?.trim() || "A new version of MOVEBY is available.");
+        } else {
+          // Covers updating via Play Store without a full cold start — Android
+          // doesn't always kill the old process, so without this, a device
+          // that updated in the background kept showing the stale banner
+          // forever since the check only ever ran once per launch.
+          setMessage(null);
         }
       } catch {
         /* never block app usage over a failed version check */
       }
-    })();
+    };
+
+    void check();
+    const onResume = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    document.addEventListener("visibilitychange", onResume);
+    return () => document.removeEventListener("visibilitychange", onResume);
   }, []);
 
   if (!message || dismissed) return null;

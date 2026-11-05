@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 export function SplashScreen() {
   const [visible, setVisible] = useState(true);
   useEffect(() => {
-    const timeout = window.setTimeout(() => setVisible(false), 1400);
+    const timeout = window.setTimeout(() => setVisible(false), 900);
     return () => window.clearTimeout(timeout);
   }, []);
   if (!visible) return null;
