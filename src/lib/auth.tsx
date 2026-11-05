@@ -57,11 +57,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // onAuthStateChange already fires once immediately with the current
+    // session (event "INITIAL_SESSION") right after subscribing — a
+    // separate getSession() call here was duplicating that, running
+    // getMe() twice on every cold start for no reason.
+    let gotFirstEvent = false;
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      void applySession(s);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      void applySession(data.session).then(() => setLoading(false));
+      void applySession(s).then(() => {
+        if (!gotFirstEvent) {
+          gotFirstEvent = true;
+          setLoading(false);
+        }
+      });
     });
     return () => sub.subscription.unsubscribe();
   }, []);
