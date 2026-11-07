@@ -286,13 +286,37 @@ export const advanceOrder = createServerFn({ method: "POST" })
     if (!expected || expected !== data.status) {
       throw new Error(`Can't move from "${order.status}" to "${data.status}".`);
     }
-    if (data.status === "delivered") {
-      if (!data.otp || data.otp !== order.delivery_otp) {
-        throw new Error("Incorrect delivery code.");
-      }
-    }
 
     const now = new Date().toISOString();
+
+    // A 4-digit code is only 10,000 combinations — without this, a driver
+    // could script-guess it to fake-confirm a delivery they never made.
+    // Lock out for 5 minutes after 5 wrong guesses, then reset.
+    if (data.status === "delivered") {
+      const lockedUntil = order.otp_locked_until ? String(order.otp_locked_until) : null;
+      if (lockedUntil && lockedUntil > now) {
+        throw new Error("Too many incorrect attempts. Try again in a few minutes.");
+      }
+      if (!data.otp || data.otp !== order.delivery_otp) {
+        const attempts = Number(order.otp_attempts ?? 0) + 1;
+        if (attempts >= 5) {
+          await db.execute({
+            sql: "UPDATE orders SET otp_attempts = 0, otp_locked_until = ? WHERE id = ?",
+            args: [new Date(Date.now() + 5 * 60_000).toISOString(), data.orderId],
+          });
+          throw new Error("Too many incorrect attempts. Try again in a few minutes.");
+        }
+        await db.execute({
+          sql: "UPDATE orders SET otp_attempts = ? WHERE id = ?",
+          args: [attempts, data.orderId],
+        });
+        throw new Error("Incorrect delivery code.");
+      }
+      await db.execute({
+        sql: "UPDATE orders SET otp_attempts = 0, otp_locked_until = NULL WHERE id = ?",
+        args: [data.orderId],
+      });
+    }
     const timestampCol: Record<string, string> = {
       arrived_at_shop: "reached_shop_at",
       picked_up: "picked_up_at",
