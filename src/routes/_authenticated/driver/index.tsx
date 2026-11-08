@@ -2,7 +2,12 @@ import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth";
-import { getMyDriver, setDriverLocation, setDriverOnline, setSearchRadius } from "@/lib/driver.functions";
+import {
+  getMyDriver,
+  setDriverLocation,
+  setDriverOnline,
+  setSearchRadius,
+} from "@/lib/driver.functions";
 import {
   getNearbyOrders,
   listDriverOrders,
@@ -10,6 +15,7 @@ import {
   advanceOrder,
   driverCancelOrder,
   expireStaleOrders,
+  clearDriverHistory,
 } from "@/lib/orders.functions";
 import { RoleSwitchButton } from "@/components/role-switch-button";
 import { AppShell } from "@/components/app-shell";
@@ -21,6 +27,17 @@ import { useLiveLocation } from "@/lib/geo";
 import { LocationGate } from "@/components/location-gate";
 import { errorMessage } from "@/lib/utils";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   MapPin,
   Navigation,
   Phone,
@@ -30,23 +47,53 @@ import {
   CheckCircle2,
   XCircle,
   ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo, minutesLeft } from "@/lib/orders";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/driver/")({ head: () => pageHead("Delivery dashboard", "Find nearby pickups and manage your MOVEBY deliveries and earnings."), component: DriverDashboard });
+export const Route = createFileRoute("/_authenticated/driver/")({
+  head: () =>
+    pageHead(
+      "Delivery dashboard",
+      "Find nearby pickups and manage your MOVEBY deliveries and earnings.",
+    ),
+  component: DriverDashboard,
+});
 
 type Driver = {
-  id: string; is_online: number | boolean; is_busy: number | boolean; search_radius_km: number;
-  available_cash: number; approval_status: string; verification_status: string; verification_notes: string | null;
+  id: string;
+  is_online: number | boolean;
+  is_busy: number | boolean;
+  search_radius_km: number;
+  available_cash: number;
+  approval_status: string;
+  verification_status: string;
+  verification_notes: string | null;
+  lifetime_earnings?: number;
 };
 type Order = {
-  id: string; status: string; created_at: string; delivered_at: string | null; delivery_charge: number;
-  order_amount: number; total_amount: number; order_description: string; shop_id: string;
-  pickup_lat: number | null; pickup_lng: number | null; pickup_notes: string | null;
-  customer_name: string; customer_phone: string; customer_address: string;
-  customer_lat: number | null; customer_lng: number | null; payment_method: string;
-  shop_name?: string; shop_phone?: string | null; shop_address?: string;
+  id: string;
+  status: string;
+  created_at: string;
+  delivered_at: string | null;
+  delivery_charge: number;
+  order_amount: number;
+  total_amount: number;
+  order_description: string;
+  shop_id: string;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+  pickup_notes: string | null;
+  customer_name: string;
+  customer_phone: string;
+  customer_address: string;
+  customer_lat: number | null;
+  customer_lng: number | null;
+  payment_method: string;
+  shop_name?: string;
+  shop_phone?: string | null;
+  shop_address?: string;
 };
 
 interface NearbyOrder {
@@ -152,7 +199,9 @@ function DriverDashboard() {
     const mineSig = JSON.stringify(mineOrders);
     if (mineSig !== prevFetchSigRef.current.mine) {
       prevFetchSigRef.current.mine = mineSig;
-      setActive(mineOrders.find((o) => o.status !== "delivered" && o.status !== "cancelled") ?? null);
+      setActive(
+        mineOrders.find((o) => o.status !== "delivered" && o.status !== "cancelled") ?? null,
+      );
       setHistory(mineOrders.slice(0, 50));
     }
   }, [user]);
@@ -257,13 +306,16 @@ function DriverDashboard() {
       todayEarn: sum(todayDel),
       weekEarn: sum(weekDel),
       monthEarn: sum(monthDel),
-      lifetimeEarn: sum(delivered),
       todayDeliveries: todayDel.length,
       delivered: delivered.length,
       cancelled: cancelled.length,
       acceptRate: total > 0 ? Math.round((delivered.length / total) * 100) : 100,
     };
   }, [history]);
+  // Kept separate from `stats` (and from summing `history`) so clearing
+  // visible history can never move this number — it's the one persistent
+  // total Turso tracks directly on the driver row.
+  const lifetimeEarn = Number(driver?.lifetime_earnings ?? 0);
 
   if (loc.status !== "granted" || !loc.coords)
     return <LocationGate state={loc.status} onRetry={loc.retry} />;
@@ -316,137 +368,141 @@ function DriverDashboard() {
           screen for the job at hand instead of a dashboard the driver could
           wander off into mid-delivery. */}
       {!active && (
-      <>
-      {/* Availability */}
-      <div className="card-elevated mb-6 flex items-center gap-4 p-5">
-        <div
-          className={`grid h-11 w-11 place-items-center rounded-full ${driver.is_online ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
-        >
-          <MapPin className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1 text-sm">
-          <p className="font-semibold">
-            {driver.is_busy
-              ? "Busy — on a delivery"
-              : driver.is_online
-                ? "Online — receiving requests"
-                : "Offline"}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)} · Cash cap{" "}
-            {fmtINR(driver.available_cash)}
-          </p>
-        </div>
-        <Switch
-          checked={Boolean(driver.is_online)}
-          aria-label="Go online"
-          onCheckedChange={async (on) => {
-            setDriver({ ...driver, is_online: on });
-            try {
-              await setDriverOnline({ data: { isOnline: on } });
-              toast.success(on ? "You're online" : "You're offline");
-              if (on) await pushLocation();
-              void loadOrders();
-            } catch (err) {
-              setDriver({ ...driver, is_online: !on });
-              toast.error(errorMessage(err, "Failed to update"));
-            }
-          }}
-        />
-      </div>
-
-      {/* Alert radius */}
-      <div className="card-soft mb-6 flex flex-wrap items-center justify-between gap-3 p-5">
-        <div className="text-sm">
-          <p className="font-semibold">Alert radius</p>
-          <p className="text-xs text-muted-foreground">
-            Only shops within {driver.search_radius_km} km of you will alert you.
-          </p>
-        </div>
-        <div className="flex gap-1 rounded-full bg-muted p-1">
-          {[1, 2, 3].map((km) => (
-            <button
-              key={km}
-              type="button"
-              onClick={async () => {
-                const prev = driver.search_radius_km;
-                setDriver({ ...driver, search_radius_km: km });
+        <>
+          {/* Availability */}
+          <div className="card-elevated mb-6 flex items-center gap-4 p-5">
+            <div
+              className={`grid h-11 w-11 place-items-center rounded-full ${driver.is_online ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+            >
+              <MapPin className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1 text-sm">
+              <p className="font-semibold">
+                {driver.is_busy
+                  ? "Busy — on a delivery"
+                  : driver.is_online
+                    ? "Online — receiving requests"
+                    : "Offline"}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)} · Cash cap{" "}
+                {fmtINR(driver.available_cash)}
+              </p>
+            </div>
+            <Switch
+              checked={Boolean(driver.is_online)}
+              aria-label="Go online"
+              onCheckedChange={async (on) => {
+                setDriver({ ...driver, is_online: on });
                 try {
-                  await setSearchRadius({ data: { km } });
-                  toast.success(`Alerts limited to ${km} km`);
+                  await setDriverOnline({ data: { isOnline: on } });
+                  toast.success(on ? "You're online" : "You're offline");
+                  if (on) await pushLocation();
                   void loadOrders();
                 } catch (err) {
-                  setDriver({ ...driver, search_radius_km: prev });
+                  setDriver({ ...driver, is_online: !on });
                   toast.error(errorMessage(err, "Failed to update"));
                 }
               }}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-                Number(driver.search_radius_km) === km
-                  ? "bg-card text-foreground shadow-soft"
-                  : "text-muted-foreground"
-              }`}
+            />
+          </div>
+
+          {/* Alert radius */}
+          <div className="card-soft mb-6 flex flex-wrap items-center justify-between gap-3 p-5">
+            <div className="text-sm">
+              <p className="font-semibold">Alert radius</p>
+              <p className="text-xs text-muted-foreground">
+                Only shops within {driver.search_radius_km} km of you will alert you.
+              </p>
+            </div>
+            <div className="flex gap-1 rounded-full bg-muted p-1">
+              {[1, 2, 3].map((km) => (
+                <button
+                  key={km}
+                  type="button"
+                  onClick={async () => {
+                    const prev = driver.search_radius_km;
+                    setDriver({ ...driver, search_radius_km: km });
+                    try {
+                      await setSearchRadius({ data: { km } });
+                      toast.success(`Alerts limited to ${km} km`);
+                      void loadOrders();
+                    } catch (err) {
+                      setDriver({ ...driver, search_radius_km: prev });
+                      toast.error(errorMessage(err, "Failed to update"));
+                    }
+                  }}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                    Number(driver.search_radius_km) === km
+                      ? "bg-card text-foreground shadow-soft"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {km} km
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-6 flex flex-wrap justify-end gap-2">
+            <RoleSwitchButton targetRole="shopkeeper" />
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => navigate({ to: "/driver/settings" })}
             >
-              {km} km
-            </button>
-          ))}
-        </div>
-      </div>
+              Edit profile
+            </Button>
+          </div>
 
-      <div className="mb-6 flex flex-wrap justify-end gap-2">
-        <RoleSwitchButton targetRole="shopkeeper" />
-        <Button
-          variant="outline"
-          className="rounded-full"
-          onClick={() => navigate({ to: "/driver/settings" })}
-        >
-          Edit profile
-        </Button>
-      </div>
+          {/* Earnings */}
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Stat
+              label="Today"
+              value={fmtINR(stats.todayEarn)}
+              icon={<Wallet className="h-4 w-4" />}
+              accent
+            />
+            <Stat
+              label="This week"
+              value={fmtINR(stats.weekEarn)}
+              icon={<Wallet className="h-4 w-4" />}
+            />
+            <Stat
+              label="This month"
+              value={fmtINR(stats.monthEarn)}
+              icon={<Wallet className="h-4 w-4" />}
+            />
+            <Stat
+              label="Lifetime"
+              value={fmtINR(lifetimeEarn)}
+              icon={<TrendingUp className="h-4 w-4" />}
+            />
+          </div>
 
-      {/* Earnings */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat
-          label="Today"
-          value={fmtINR(stats.todayEarn)}
-          icon={<Wallet className="h-4 w-4" />}
-          accent
-        />
-        <Stat
-          label="This week"
-          value={fmtINR(stats.weekEarn)}
-          icon={<Wallet className="h-4 w-4" />}
-        />
-        <Stat
-          label="This month"
-          value={fmtINR(stats.monthEarn)}
-          icon={<Wallet className="h-4 w-4" />}
-        />
-        <Stat
-          label="Lifetime"
-          value={fmtINR(stats.lifetimeEarn)}
-          icon={<TrendingUp className="h-4 w-4" />}
-        />
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat
-          label="Today deliveries"
-          value={stats.todayDeliveries}
-          icon={<Package className="h-4 w-4" />}
-        />
-        <Stat
-          label="Completed"
-          value={stats.delivered}
-          icon={<CheckCircle2 className="h-4 w-4" />}
-        />
-        <Stat label="Cancelled" value={stats.cancelled} icon={<XCircle className="h-4 w-4" />} />
-        <Stat
-          label="Accept rate"
-          value={`${stats.acceptRate}%`}
-          icon={<TrendingUp className="h-4 w-4" />}
-        />
-      </div>
-      </>
+          <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Stat
+              label="Today deliveries"
+              value={stats.todayDeliveries}
+              icon={<Package className="h-4 w-4" />}
+            />
+            <Stat
+              label="Completed"
+              value={stats.delivered}
+              icon={<CheckCircle2 className="h-4 w-4" />}
+            />
+            <Stat
+              label="Cancelled"
+              value={stats.cancelled}
+              icon={<XCircle className="h-4 w-4" />}
+            />
+            <Stat
+              label="Accept rate"
+              value={`${stats.acceptRate}%`}
+              icon={<TrendingUp className="h-4 w-4" />}
+            />
+          </div>
+        </>
       )}
 
       <div className="mt-8">
@@ -491,14 +547,53 @@ function DriverDashboard() {
 
       {!active && history.length > 0 && (
         <div className="mt-10">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Recent deliveries
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Recent deliveries
+            </h2>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Clear history
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear delivery history?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This only clears this list so it's easier to look through — your lifetime
+                    earnings above are kept.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={async () => {
+                      try {
+                        await clearDriverHistory();
+                        toast.success("History cleared");
+                        void loadOrders();
+                      } catch (err) {
+                        toast.error(errorMessage(err, "Failed to clear history"));
+                      }
+                    }}
+                  >
+                    Clear
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
           <div className="space-y-2">
             {history.slice(0, 8).map((o) => (
               <div key={o.id} className="card-soft flex items-center justify-between p-4">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{o.shop_name || o.order_description}</p>
+                  <p className="truncate text-sm font-semibold">
+                    {o.shop_name || o.order_description}
+                  </p>
                   {o.order_description && o.shop_name && (
                     <p className="truncate text-xs text-muted-foreground">{o.order_description}</p>
                   )}
@@ -577,7 +672,9 @@ function NearbyCard({
           <p className="font-semibold">{order.shop_name}</p>
           <p className="mt-1 text-xs text-muted-foreground">Pickup: {order.pickup_address}</p>
           {order.customer_address && (
-            <p className="mt-0.5 text-xs text-muted-foreground">Deliver to: {order.customer_address}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Deliver to: {order.customer_address}
+            </p>
           )}
           <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5">
@@ -608,11 +705,7 @@ function NearbyCard({
         >
           Not now
         </Button>
-        <Button
-          disabled={busy}
-          onClick={accept}
-          className="h-10 flex-1 rounded-full font-semibold"
-        >
+        <Button disabled={busy} onClick={accept} className="h-10 flex-1 rounded-full font-semibold">
           {busy ? "Accepting…" : "Accept order"}
         </Button>
       </div>
@@ -634,7 +727,11 @@ function ActiveOrder({
   const [otp, setOtp] = useState("");
   const canCancel = ["going_to_shop", "arrived_at_shop", "reached_shop"].includes(order.status);
   const shop = order.shop_name
-    ? { shop_name: order.shop_name, address: order.shop_address ?? "", phone: order.shop_phone ?? null }
+    ? {
+        shop_name: order.shop_name,
+        address: order.shop_address ?? "",
+        phone: order.shop_phone ?? null,
+      }
     : null;
   const driverName = (profile?.full_name as string | undefined) || "Delivery partner";
   const paymentReceived = [
@@ -666,7 +763,9 @@ function ActiveOrder({
   const cancel = async () => {
     setBusy(true);
     try {
-      await driverCancelOrder({ data: { orderId: order.id, reason: "Cancelled by delivery partner" } });
+      await driverCancelOrder({
+        data: { orderId: order.id, reason: "Cancelled by delivery partner" },
+      });
       toast.success("Order cancelled");
       onChange();
     } catch (err) {
@@ -725,7 +824,9 @@ Thank you.`;
       >
         {ORDER_STATUS_LABEL[order.status]}
       </span>
-      <h3 className="mt-3 text-xl font-bold">{order.order_description || shop?.shop_name || "Delivery"}</h3>
+      <h3 className="mt-3 text-xl font-bold">
+        {order.order_description || shop?.shop_name || "Delivery"}
+      </h3>
 
       <div className="mt-5 space-y-4 text-sm">
         {shop && (

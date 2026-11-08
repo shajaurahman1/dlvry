@@ -49,7 +49,9 @@ export const createOrder = createServerFn({ method: "POST" })
       throw new Error("Your shop isn't approved yet — you can't send delivery requests.");
     }
 
-    const settingsRes = await db.execute("SELECT delivery_radius_km, request_expiry_minutes FROM app_settings WHERE id = 1");
+    const settingsRes = await db.execute(
+      "SELECT delivery_radius_km, request_expiry_minutes FROM app_settings WHERE id = 1",
+    );
     const settings = settingsRes.rows[0] ?? { delivery_radius_km: 3, request_expiry_minutes: 10 };
     const radiusKm = Number(settings.delivery_radius_km ?? 3);
     const expiryMin = Number(settings.request_expiry_minutes ?? 10);
@@ -66,10 +68,25 @@ export const createOrder = createServerFn({ method: "POST" })
                customer_lng, payment_method, status, delivery_otp, expires_at, radius_km, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'searching', ?, ?, ?, ?, ?)`,
       args: [
-        id, context.userId, data.customer_name, data.customer_phone, data.customer_address,
-        data.order_description ?? "", data.order_amount, data.delivery_charge, data.pickup_notes ?? null,
-        data.pickup_lat, data.pickup_lng, data.customer_lat ?? null, data.customer_lng ?? null,
-        data.payment_method, otp, expiresAt, radiusKm, now, now,
+        id,
+        context.userId,
+        data.customer_name,
+        data.customer_phone,
+        data.customer_address,
+        data.order_description ?? "",
+        data.order_amount,
+        data.delivery_charge,
+        data.pickup_notes ?? null,
+        data.pickup_lat,
+        data.pickup_lng,
+        data.customer_lat ?? null,
+        data.customer_lng ?? null,
+        data.payment_method,
+        otp,
+        expiresAt,
+        radiusKm,
+        now,
+        now,
       ],
     });
     await db.execute({
@@ -92,11 +109,14 @@ export const createOrder = createServerFn({ method: "POST" })
     for (const row of driversRes.rows) {
       const driverRadius = Math.min(radiusKm, Number(row.search_radius_km ?? 3));
       const distanceKm = haversineKm(
-        data.pickup_lat, data.pickup_lng,
-        Number(row.current_lat), Number(row.current_lng),
+        data.pickup_lat,
+        data.pickup_lng,
+        Number(row.current_lat),
+        Number(row.current_lng),
       );
       if (distanceKm > driverRadius) continue;
-      if (data.payment_method === "cash" && data.order_amount > Number(row.available_cash ?? 0)) continue;
+      if (data.payment_method === "cash" && data.order_amount > Number(row.available_cash ?? 0))
+        continue;
       await createNotification(
         row.id as string,
         "New delivery request",
@@ -105,38 +125,110 @@ export const createOrder = createServerFn({ method: "POST" })
       );
     }
 
+    await db.execute({
+      sql: "UPDATE shopkeepers SET all_time_order_count = all_time_order_count + 1 WHERE id = ?",
+      args: [context.userId],
+    });
+
     return { id, delivery_otp: otp };
   });
+
+const TERMINAL_ORDER_STATUSES = ["delivered", "cancelled", "expired", "no_driver_found"];
 
 export const listShopOrders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { requireRole, toPlainRows } = await import("@/integrations/turso/profile-helpers.server");
+    const { requireRole, toPlainRows } =
+      await import("@/integrations/turso/profile-helpers.server");
     await requireRole(context.userId, "shopkeeper");
     const { db } = await import("@/integrations/turso/client.server");
+    const shopRow = await db.execute({
+      sql: "SELECT history_cleared_at FROM shopkeepers WHERE id = ?",
+      args: [context.userId],
+    });
+    const clearedAt = (shopRow.rows[0]?.history_cleared_at as string | null) ?? null;
     const res = await db.execute({
       sql: `SELECT o.*, p.full_name AS driver_name, p.phone AS driver_phone
             FROM orders o
             LEFT JOIN profiles p ON p.id = o.driver_id
-            WHERE o.shop_id = ? ORDER BY o.created_at DESC LIMIT 200`,
-      args: [context.userId],
+            WHERE o.shop_id = ?
+              AND (? IS NULL OR o.created_at > ? OR o.status NOT IN (${TERMINAL_ORDER_STATUSES.map(() => "?").join(",")}))
+            ORDER BY o.created_at DESC LIMIT 200`,
+      args: [context.userId, clearedAt, clearedAt, ...TERMINAL_ORDER_STATUSES],
     });
     return toPlainRows(res.rows);
+  });
+
+/** Clears the shop's visible order history without touching the persistent
+ *  all_time_order_count — "history" is just what's shown, not the tally. */
+export const clearShopHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { requireRole } = await import("@/integrations/turso/profile-helpers.server");
+    await requireRole(context.userId, "shopkeeper");
+    const { db } = await import("@/integrations/turso/client.server");
+    await db.execute({
+      sql: "UPDATE shopkeepers SET history_cleared_at = ? WHERE id = ?",
+      args: [new Date().toISOString(), context.userId],
+    });
+    return { ok: true };
   });
 
 export const listDriverOrders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { requireRole, toPlainRows } = await import("@/integrations/turso/profile-helpers.server");
+    const { requireRole, toPlainRows } =
+      await import("@/integrations/turso/profile-helpers.server");
     await requireRole(context.userId, "driver");
     const { db } = await import("@/integrations/turso/client.server");
+    const driverRow = await db.execute({
+      sql: "SELECT history_cleared_at FROM drivers WHERE id = ?",
+      args: [context.userId],
+    });
+    const clearedAt = (driverRow.rows[0]?.history_cleared_at as string | null) ?? null;
     const res = await db.execute({
       sql: `SELECT o.*, s.shop_name, s.shop_phone, s.address AS shop_address
             FROM orders o JOIN shopkeepers s ON s.id = o.shop_id
-            WHERE o.driver_id = ? ORDER BY o.created_at DESC LIMIT 200`,
-      args: [context.userId],
+            WHERE o.driver_id = ?
+              AND (? IS NULL OR o.created_at > ? OR o.status NOT IN (${TERMINAL_ORDER_STATUSES.map(() => "?").join(",")}))
+            ORDER BY o.created_at DESC LIMIT 200`,
+      args: [context.userId, clearedAt, clearedAt, ...TERMINAL_ORDER_STATUSES],
     });
     return toPlainRows(res.rows);
+  });
+
+/** Clears the driver's visible order history without touching the
+ *  persistent lifetime_earnings — "history" is just what's shown. */
+export const clearDriverHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { requireRole } = await import("@/integrations/turso/profile-helpers.server");
+    await requireRole(context.userId, "driver");
+    const { db } = await import("@/integrations/turso/client.server");
+    await db.execute({
+      sql: "UPDATE drivers SET history_cleared_at = ? WHERE id = ?",
+      args: [new Date().toISOString(), context.userId],
+    });
+    return { ok: true };
+  });
+
+/** Marks the shop as having sent the delivery OTP to the customer (via
+ *  WhatsApp or otherwise) — lets the shop dashboard stop blocking on it. */
+export const markOtpSent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { orderId: string }) => input)
+  .handler(async ({ context, data }) => {
+    const { db } = await import("@/integrations/turso/client.server");
+    const order = (
+      await db.execute({ sql: "SELECT shop_id FROM orders WHERE id = ?", args: [data.orderId] })
+    ).rows[0];
+    if (!order) throw new Error("Order not found.");
+    if (order.shop_id !== context.userId) throw new Error("Not your order.");
+    await db.execute({
+      sql: "UPDATE orders SET otp_sent_at = ? WHERE id = ?",
+      args: [new Date().toISOString(), data.orderId],
+    });
+    return { ok: true };
   });
 
 /** Flips orders nobody accepted before their expiry to 'no_driver_found' so
@@ -157,7 +249,8 @@ export const expireStaleOrders = createServerFn({ method: "POST" })
 export const listAdminOrders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { requireAdmin, toPlainRows } = await import("@/integrations/turso/profile-helpers.server");
+    const { requireAdmin, toPlainRows } =
+      await import("@/integrations/turso/profile-helpers.server");
     await requireAdmin(context.userId);
     const { db } = await import("@/integrations/turso/client.server");
     const res = await db.execute("SELECT * FROM orders ORDER BY created_at DESC LIMIT 50");
@@ -171,11 +264,15 @@ export const getNearbyOrders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .validator((input: { lat: number; lng: number }) => input)
   .handler(async ({ context, data }) => {
-    const { requireRole, toPlainRows } = await import("@/integrations/turso/profile-helpers.server");
+    const { requireRole, toPlainRows } =
+      await import("@/integrations/turso/profile-helpers.server");
     await requireRole(context.userId, "driver");
     const { db } = await import("@/integrations/turso/client.server");
 
-    const driverRes = await db.execute({ sql: "SELECT * FROM drivers WHERE id = ?", args: [context.userId] });
+    const driverRes = await db.execute({
+      sql: "SELECT * FROM drivers WHERE id = ?",
+      args: [context.userId],
+    });
     const driver = driverRes.rows[0];
     if (!driver) return [];
     if (driver.approval_status !== "approved") return [];
@@ -200,13 +297,22 @@ export const getNearbyOrders = createServerFn({ method: "GET" })
     const availableCash = Number(driver.available_cash ?? 0);
 
     type Candidate = {
-      pickup_lat: number; pickup_lng: number; radius_km: number;
-      payment_method: string; order_amount: number; [key: string]: string | number | null;
+      pickup_lat: number;
+      pickup_lng: number;
+      radius_km: number;
+      payment_method: string;
+      order_amount: number;
+      [key: string]: string | number | null;
     };
 
     return toPlainRows<Candidate>(candidates.rows)
       .map((o) => {
-        const distanceKm = haversineKm(data.lat, data.lng, Number(o.pickup_lat), Number(o.pickup_lng));
+        const distanceKm = haversineKm(
+          data.lat,
+          data.lng,
+          Number(o.pickup_lat),
+          Number(o.pickup_lng),
+        );
         return { ...o, distance_km: distanceKm };
       })
       .filter((o) => {
@@ -227,7 +333,10 @@ export const acceptOrder = createServerFn({ method: "POST" })
     const { db } = await import("@/integrations/turso/client.server");
     const { createNotification } = await import("@/integrations/turso/notify.server");
 
-    const driverRes = await db.execute({ sql: "SELECT * FROM drivers WHERE id = ?", args: [context.userId] });
+    const driverRes = await db.execute({
+      sql: "SELECT * FROM drivers WHERE id = ?",
+      args: [context.userId],
+    });
     const driver = driverRes.rows[0];
     if (!driver || driver.approval_status !== "approved" || driver.is_busy) {
       throw new Error("You can't accept orders right now.");
@@ -244,9 +353,15 @@ export const acceptOrder = createServerFn({ method: "POST" })
       if (upd.rowsAffected === 0) {
         throw new Error("This order was already taken or is no longer available.");
       }
-      const orderRes = await tx.execute({ sql: "SELECT shop_id FROM orders WHERE id = ?", args: [data.orderId] });
+      const orderRes = await tx.execute({
+        sql: "SELECT shop_id FROM orders WHERE id = ?",
+        args: [data.orderId],
+      });
       shopId = (orderRes.rows[0]?.shop_id as string) ?? null;
-      await tx.execute({ sql: "UPDATE drivers SET is_busy = 1 WHERE id = ?", args: [context.userId] });
+      await tx.execute({
+        sql: "UPDATE drivers SET is_busy = 1 WHERE id = ?",
+        args: [context.userId],
+      });
       await tx.execute({
         sql: "INSERT INTO order_status_history (id, order_id, status, changed_by) VALUES (?, ?, 'going_to_shop', ?)",
         args: [crypto.randomUUID(), data.orderId, context.userId],
@@ -257,7 +372,12 @@ export const acceptOrder = createServerFn({ method: "POST" })
     }
 
     if (shopId) {
-      await createNotification(shopId, "Driver on the way", "A delivery partner accepted your order and is heading to your shop.", data.orderId);
+      await createNotification(
+        shopId,
+        "Driver on the way",
+        "A delivery partner accepted your order and is heading to your shop.",
+        data.orderId,
+      );
     }
     return { ok: true };
   });
@@ -277,7 +397,10 @@ export const advanceOrder = createServerFn({ method: "POST" })
     const { db } = await import("@/integrations/turso/client.server");
     const { createNotification } = await import("@/integrations/turso/notify.server");
 
-    const orderRes = await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [data.orderId] });
+    const orderRes = await db.execute({
+      sql: "SELECT * FROM orders WHERE id = ?",
+      args: [data.orderId],
+    });
     const order = orderRes.rows[0];
     if (!order) throw new Error("Order not found.");
     if (order.driver_id !== context.userId) throw new Error("You are not assigned to this order.");
@@ -337,20 +460,30 @@ export const advanceOrder = createServerFn({ method: "POST" })
         args: [crypto.randomUUID(), data.orderId, data.status, context.userId],
       });
       if (data.status === "delivered") {
-        await tx.execute({ sql: "UPDATE drivers SET is_busy = 0 WHERE id = ?", args: [context.userId] });
+        await tx.execute({
+          sql: "UPDATE drivers SET is_busy = 0, lifetime_earnings = lifetime_earnings + ? WHERE id = ?",
+          args: [Number(order.delivery_charge ?? 0), context.userId],
+        });
       }
       await tx.commit();
     } finally {
       tx.close();
     }
 
+    // Bell notifications are reserved for orders that still need attention
+    // right now — the in-progress steps (arrived at shop, picked up) are
+    // just noise since the shop/driver can already see live status in the
+    // app; only the final outcome is worth a push.
     const messages: Record<string, string> = {
-      arrived_at_shop: "Your delivery partner has arrived at your shop.",
-      picked_up: "Your order has been picked up.",
       delivered: "Your order has been delivered!",
     };
     if (messages[data.status]) {
-      await createNotification(String(order.shop_id), "Order update", messages[data.status], data.orderId);
+      await createNotification(
+        String(order.shop_id),
+        "Order update",
+        messages[data.status],
+        data.orderId,
+      );
     }
     return { ok: true };
   });
@@ -363,10 +496,13 @@ export const confirmPayment = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { db } = await import("@/integrations/turso/client.server");
     const { createNotification } = await import("@/integrations/turso/notify.server");
-    const order = (await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [data.orderId] })).rows[0];
+    const order = (
+      await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [data.orderId] })
+    ).rows[0];
     if (!order) throw new Error("Order not found.");
     if (order.shop_id !== context.userId) throw new Error("Not your order.");
-    if (order.status !== "arrived_at_shop") throw new Error("Payment can only be confirmed after the driver arrives.");
+    if (order.status !== "arrived_at_shop")
+      throw new Error("Payment can only be confirmed after the driver arrives.");
 
     const now = new Date().toISOString();
     await db.execute({
@@ -378,7 +514,12 @@ export const confirmPayment = createServerFn({ method: "POST" })
       args: [crypto.randomUUID(), data.orderId, context.userId],
     });
     if (order.driver_id) {
-      await createNotification(String(order.driver_id), "Payment confirmed", "The shop confirmed payment — you can pick up the order now.", data.orderId);
+      await createNotification(
+        String(order.driver_id),
+        "Payment confirmed",
+        "The shop confirmed payment — you can pick up the order now.",
+        data.orderId,
+      );
     }
     return { ok: true };
   });
@@ -393,14 +534,18 @@ export const driverCancelOrder = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { db } = await import("@/integrations/turso/client.server");
     const { createNotification } = await import("@/integrations/turso/notify.server");
-    const order = (await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [data.orderId] })).rows[0];
+    const order = (
+      await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [data.orderId] })
+    ).rows[0];
     if (!order) throw new Error("Order not found.");
     if (order.driver_id !== context.userId) throw new Error("You're not assigned to this order.");
     if (!["going_to_shop", "arrived_at_shop", "reached_shop"].includes(String(order.status))) {
       throw new Error("You can no longer cancel — payment has already been confirmed.");
     }
 
-    const settingsRes = await db.execute("SELECT request_expiry_minutes FROM app_settings WHERE id = 1");
+    const settingsRes = await db.execute(
+      "SELECT request_expiry_minutes FROM app_settings WHERE id = 1",
+    );
     const expiryMin = Number(settingsRes.rows[0]?.request_expiry_minutes ?? 10);
     const expiresAt = new Date(Date.now() + expiryMin * 60_000).toISOString();
     const now = new Date().toISOString();
@@ -409,10 +554,14 @@ export const driverCancelOrder = createServerFn({ method: "POST" })
     try {
       await tx.execute({
         sql: `UPDATE orders SET status = 'searching', driver_id = NULL, accepted_at = NULL,
-                delivery_otp = ?, expires_at = ?, updated_at = ? WHERE id = ?`,
+                delivery_otp = ?, otp_sent_at = NULL, otp_attempts = 0, otp_locked_until = NULL,
+                expires_at = ?, updated_at = ? WHERE id = ?`,
         args: [String(Math.floor(1000 + Math.random() * 9000)), expiresAt, now, data.orderId],
       });
-      await tx.execute({ sql: "UPDATE drivers SET is_busy = 0 WHERE id = ?", args: [context.userId] });
+      await tx.execute({
+        sql: "UPDATE drivers SET is_busy = 0 WHERE id = ?",
+        args: [context.userId],
+      });
       await tx.execute({
         sql: "INSERT INTO order_status_history (id, order_id, status, changed_by) VALUES (?, ?, 'searching', ?)",
         args: [crypto.randomUUID(), data.orderId, context.userId],
@@ -436,10 +585,16 @@ export const cancelOrder = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { db } = await import("@/integrations/turso/client.server");
     const { createNotification } = await import("@/integrations/turso/notify.server");
-    const order = (await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [data.orderId] })).rows[0];
+    const order = (
+      await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [data.orderId] })
+    ).rows[0];
     if (!order) throw new Error("Order not found.");
     if (order.shop_id !== context.userId) throw new Error("Not your order.");
-    if (!["searching", "going_to_shop", "arrived_at_shop", "payment_received"].includes(String(order.status))) {
+    if (
+      !["searching", "going_to_shop", "arrived_at_shop", "payment_received"].includes(
+        String(order.status),
+      )
+    ) {
       throw new Error("This order can no longer be cancelled.");
     }
 
@@ -451,7 +606,10 @@ export const cancelOrder = createServerFn({ method: "POST" })
         args: [now, data.reason, now, data.orderId],
       });
       if (order.driver_id) {
-        await tx.execute({ sql: "UPDATE drivers SET is_busy = 0 WHERE id = ?", args: [order.driver_id] });
+        await tx.execute({
+          sql: "UPDATE drivers SET is_busy = 0 WHERE id = ?",
+          args: [order.driver_id],
+        });
       }
       await tx.execute({
         sql: "INSERT INTO order_status_history (id, order_id, status, changed_by) VALUES (?, ?, 'cancelled', ?)",
@@ -462,7 +620,12 @@ export const cancelOrder = createServerFn({ method: "POST" })
       tx.close();
     }
     if (order.driver_id) {
-      await createNotification(String(order.driver_id), "Order cancelled", "The shop cancelled this delivery request.", data.orderId);
+      await createNotification(
+        String(order.driver_id),
+        "Order cancelled",
+        "The shop cancelled this delivery request.",
+        data.orderId,
+      );
     }
     return { ok: true };
   });
@@ -473,14 +636,18 @@ export const resendOrder = createServerFn({ method: "POST" })
   .validator((input: { orderId: string }) => input)
   .handler(async ({ context, data }) => {
     const { db } = await import("@/integrations/turso/client.server");
-    const order = (await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [data.orderId] })).rows[0];
+    const order = (
+      await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [data.orderId] })
+    ).rows[0];
     if (!order) throw new Error("Order not found.");
     if (order.shop_id !== context.userId) throw new Error("Not your order.");
     if (!["no_driver_found", "expired"].includes(String(order.status))) {
       throw new Error("Only expired requests can be resent.");
     }
 
-    const settingsRes = await db.execute("SELECT request_expiry_minutes FROM app_settings WHERE id = 1");
+    const settingsRes = await db.execute(
+      "SELECT request_expiry_minutes FROM app_settings WHERE id = 1",
+    );
     const expiryMin = Number(settingsRes.rows[0]?.request_expiry_minutes ?? 10);
     const expiresAt = new Date(Date.now() + expiryMin * 60_000).toISOString();
     const now = new Date().toISOString();
