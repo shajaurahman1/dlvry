@@ -10,6 +10,8 @@ import {
   confirmPayment,
   cancelOrder,
   resendOrder,
+  markOtpSent,
+  clearShopHistory,
 } from "@/lib/orders.functions";
 import { RoleSwitchButton } from "@/components/role-switch-button";
 import { AppShell } from "@/components/app-shell";
@@ -25,6 +27,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus,
@@ -37,6 +50,7 @@ import {
   CalendarDays,
   RefreshCw,
   MessageCircle,
+  Trash2,
 } from "lucide-react";
 import {
   ORDER_STATUS_LABEL,
@@ -54,17 +68,39 @@ const LocationPicker = lazy(() =>
   import("@/components/location-picker").then((m) => ({ default: m.LocationPicker })),
 );
 
-export const Route = createFileRoute("/_authenticated/shop/")({ head: () => pageHead("Shop dispatch", "Manage shop pickup requests and deliveries on MOVEBY."), component: ShopDashboard });
+export const Route = createFileRoute("/_authenticated/shop/")({
+  head: () => pageHead("Shop dispatch", "Manage shop pickup requests and deliveries on MOVEBY."),
+  component: ShopDashboard,
+});
 
 type Order = Awaited<ReturnType<typeof listShopOrders>>[number] & {
-  id: string; status: string; created_at: string; expires_at: string | null; delivery_otp: string | null;
-  order_description: string; customer_name: string; customer_phone: string; payment_method: string;
-  total_amount: number; order_amount: number; delivery_charge: number; cancel_reason?: string | null;
-  driver_id?: string | null; driver_name?: string | null; driver_phone?: string | null;
+  id: string;
+  status: string;
+  created_at: string;
+  expires_at: string | null;
+  delivery_otp: string | null;
+  order_description: string;
+  customer_name: string;
+  customer_phone: string;
+  payment_method: string;
+  total_amount: number;
+  order_amount: number;
+  delivery_charge: number;
+  cancel_reason?: string | null;
+  driver_id?: string | null;
+  driver_name?: string | null;
+  driver_phone?: string | null;
+  otp_sent_at?: string | null;
 };
 type Shop = NonNullable<Awaited<ReturnType<typeof getMyShop>>> & {
-  id: string; shop_name: string; shop_category: string; shop_photo_url: string | null;
-  approval_status: string; latitude: number; longitude: number;
+  id: string;
+  shop_name: string;
+  shop_category: string;
+  shop_photo_url: string | null;
+  approval_status: string;
+  latitude: number;
+  longitude: number;
+  all_time_order_count?: number;
 };
 type Filter = "all" | "today" | "week" | "month" | "pending" | "active" | "completed" | "cancelled";
 
@@ -120,6 +156,21 @@ function ShopDashboard() {
     };
   }, [orders]);
 
+  // Blocks the dashboard until the shop sends (or acknowledges sending) the
+  // delivery code for an order that's been accepted by a driver — easy to
+  // forget when it's just a small button buried in the order card.
+  const pendingOtpOrder = useMemo(
+    () =>
+      orders.find(
+        (o) =>
+          !TERMINAL_STATUSES.includes(o.status) &&
+          !SEARCHING_STATUSES.includes(o.status) &&
+          o.delivery_otp &&
+          !o.otp_sent_at,
+      ) ?? null,
+    [orders],
+  );
+
   const filtered = useMemo(() => {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -172,6 +223,7 @@ function ShopDashboard() {
 
   return (
     <AppShell subtitle={shop.shop_name} title="Dispatch">
+      <SendCodeBlocker order={pendingOtpOrder} onSent={load} />
       <NotificationPromptCard />
       {/* Kept out of AppShell's title row (which doesn't wrap) so these
           don't get squeezed next to "Dispatch" and force the page to
@@ -251,15 +303,58 @@ function ShopDashboard() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <Stat label="Today" value={stats.today} icon={<CalendarDays className="h-4 w-4" />} />
         <Stat label="This month" value={stats.month} icon={<CalendarDays className="h-4 w-4" />} />
-        <Stat label="All-time" value={stats.total} icon={<PackageCheck className="h-4 w-4" />} />
+        <Stat
+          label="All-time"
+          value={shop.all_time_order_count ?? stats.total}
+          icon={<PackageCheck className="h-4 w-4" />}
+        />
         <Stat label="Active" value={stats.active} icon={<Clock className="h-4 w-4" />} accent />
         <Stat label="Delivered" value={stats.delivered} icon={<Truck className="h-4 w-4" />} />
         <Stat label="Cancelled" value={stats.cancelled} icon={<XCircle className="h-4 w-4" />} />
       </div>
 
-      <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-        Orders
-      </h2>
+      <div className="mt-10 mb-3 flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Orders
+        </h2>
+        {orders.length > 0 && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Clear history
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear order history?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This only clears this list so it's easier to look through — your all-time order
+                  count above is kept.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={async () => {
+                    try {
+                      await clearShopHistory();
+                      toast.success("History cleared");
+                      load();
+                    } catch (err) {
+                      toast.error(errorMessage(err, "Failed to clear history"));
+                    }
+                  }}
+                >
+                  Clear
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+      </div>
       <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)} className="mb-4">
         <TabsList className="flex w-full flex-wrap gap-1 rounded-full bg-muted p-1">
           {(
@@ -367,7 +462,7 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
   const mins = minutesLeft(order.expires_at);
   const showOtp = !TERMINAL_STATUSES.includes(order.status) && !searching && order.delivery_otp;
 
-  const whatsAppOtp = () => {
+  const whatsAppOtp = async () => {
     if (!order.customer_phone?.trim()) {
       toast.error("Customer number not given");
       return;
@@ -375,6 +470,12 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
     const msg = `Hi ${order.customer_name}, your MOVEBY delivery code is *${order.delivery_otp}*. Please share it with the delivery partner when your order arrives.`;
     const phone = order.customer_phone.replace(/[^\d]/g, "");
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+    try {
+      await markOtpSent({ data: { orderId: order.id } });
+      onChange();
+    } catch {
+      /* best-effort — the blocker will catch it next load if this fails */
+    }
   };
 
   const nextAction = (() => {
@@ -406,7 +507,10 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
               {order.driver_phone && (
                 <>
                   {" · "}
-                  <a href={`tel:${order.driver_phone}`} className="underline-offset-2 hover:underline">
+                  <a
+                    href={`tel:${order.driver_phone}`}
+                    className="underline-offset-2 hover:underline"
+                  >
                     {order.driver_phone}
                   </a>
                 </>
@@ -437,13 +541,21 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
               {order.delivery_otp}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={whatsAppOtp}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-card px-3 py-1.5 text-xs font-medium text-primary"
-          >
-            <MessageCircle className="h-3.5 w-3.5" /> Send code to customer
-          </button>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={whatsAppOtp}
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-card px-3 py-1.5 text-xs font-medium text-primary"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              {order.otp_sent_at ? "Resend code to customer" : "Send code to customer"}
+            </button>
+            {order.otp_sent_at && (
+              <span className="text-[11px] text-muted-foreground">
+                Sent {timeAgo(order.otp_sent_at)}
+              </span>
+            )}
+          </div>
         </div>
       )}
 
@@ -635,6 +747,65 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
     <div>
       <Label className="text-sm font-medium">{label}</Label>
       <div className="mt-1.5">{children}</div>
+    </div>
+  );
+}
+
+/** Full-screen, no-dismiss prompt for an order that's been accepted by a
+ *  driver but whose delivery code hasn't been sent to the customer yet —
+ *  forces the shop to deal with it before doing anything else, instead of
+ *  relying on them noticing a small button on the order card. */
+function SendCodeBlocker({ order, onSent }: { order: Order | null; onSent: () => void }) {
+  const [busy, setBusy] = useState(false);
+  if (!order) return null;
+  const hasPhone = !!order.customer_phone?.trim();
+
+  const resolve = async () => {
+    setBusy(true);
+    try {
+      if (hasPhone) {
+        const msg = `Hi ${order.customer_name}, your MOVEBY delivery code is *${order.delivery_otp}*. Please share it with the delivery partner when your order arrives.`;
+        const phone = order.customer_phone.replace(/[^\d]/g, "");
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+      }
+      await markOtpSent({ data: { orderId: order.id } });
+      onSent();
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to update"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-background/95 p-4 backdrop-blur-sm">
+      <div className="card-elevated w-full max-w-sm p-6 text-center">
+        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary">
+          <MessageCircle className="h-7 w-7" />
+        </div>
+        <p className="text-lg font-bold">Send the delivery code</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {hasPhone
+            ? `Send ${order.customer_name}'s delivery code before doing anything else, so they're ready when the partner arrives.`
+            : `No phone number saved for ${order.customer_name} — share the code with them yourself, then confirm below.`}
+        </p>
+        <div className="mt-4 rounded-xl bg-primary/5 py-3 text-2xl font-black tracking-[0.4em] text-primary">
+          {order.delivery_otp}
+        </div>
+        <Button
+          disabled={busy}
+          onClick={resolve}
+          className="mt-5 h-11 w-full rounded-full font-semibold"
+        >
+          {hasPhone ? (
+            <>
+              <MessageCircle className="mr-1.5 h-4 w-4" /> Send via WhatsApp
+            </>
+          ) : (
+            "I've shared the code"
+          )}
+        </Button>
+      </div>
     </div>
   );
 }
