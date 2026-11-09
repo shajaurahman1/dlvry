@@ -10,7 +10,6 @@ import {
   confirmPayment,
   cancelOrder,
   resendOrder,
-  markOtpSent,
   clearShopHistory,
 } from "@/lib/orders.functions";
 import { RoleSwitchButton } from "@/components/role-switch-button";
@@ -49,7 +48,6 @@ import {
   Truck,
   CalendarDays,
   RefreshCw,
-  MessageCircle,
   Trash2,
 } from "lucide-react";
 import {
@@ -90,7 +88,6 @@ type Order = Awaited<ReturnType<typeof listShopOrders>>[number] & {
   driver_id?: string | null;
   driver_name?: string | null;
   driver_phone?: string | null;
-  otp_sent_at?: string | null;
 };
 type Shop = NonNullable<Awaited<ReturnType<typeof getMyShop>>> & {
   id: string;
@@ -156,21 +153,6 @@ function ShopDashboard() {
     };
   }, [orders]);
 
-  // Blocks the dashboard until the shop sends (or acknowledges sending) the
-  // delivery code for an order that's been accepted by a driver — easy to
-  // forget when it's just a small button buried in the order card.
-  const pendingOtpOrder = useMemo(
-    () =>
-      orders.find(
-        (o) =>
-          !TERMINAL_STATUSES.includes(o.status) &&
-          !SEARCHING_STATUSES.includes(o.status) &&
-          o.delivery_otp &&
-          !o.otp_sent_at,
-      ) ?? null,
-    [orders],
-  );
-
   const filtered = useMemo(() => {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -223,7 +205,6 @@ function ShopDashboard() {
 
   return (
     <AppShell subtitle={shop.shop_name} title="Dispatch">
-      <SendCodeBlocker order={pendingOtpOrder} onSent={load} />
       <NotificationPromptCard />
       {/* Kept out of AppShell's title row (which doesn't wrap) so these
           don't get squeezed next to "Dispatch" and force the page to
@@ -460,31 +441,13 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
 
   const searching = SEARCHING_STATUSES.includes(order.status);
   const mins = minutesLeft(order.expires_at);
-  const showOtp = !TERMINAL_STATUSES.includes(order.status) && !searching && order.delivery_otp;
-
-  const whatsAppOtp = async () => {
-    if (!order.customer_phone?.trim()) {
-      toast.error("Customer number not given");
-      return;
-    }
-    // Mark sent before opening WhatsApp — opening it backgrounds the app,
-    // which can suspend an in-flight request before it resolves.
-    try {
-      await markOtpSent({ data: { orderId: order.id } });
-      onChange();
-    } catch {
-      /* best-effort — the blocker will catch it next load if this fails */
-    }
-    const msg = `Hi ${order.customer_name}, your MOVEBY delivery code is *${order.delivery_otp}*. Please share it with the delivery partner when your order arrives.`;
-    const phone = order.customer_phone.replace(/[^\d]/g, "");
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
-    try {
-      await markOtpSent({ data: { orderId: order.id } });
-      onChange();
-    } catch {
-      /* best-effort — the blocker will catch it next load if this fails */
-    }
-  };
+  // The pickup code only matters up to the moment the driver actually takes
+  // the order — once they're heading to the customer it's already served
+  // its purpose, so there's nothing left to show.
+  const showPickupCode =
+    ["going_to_shop", "arrived_at_shop", "reached_shop", "payment_received", "picked_up"].includes(
+      order.status,
+    ) && order.delivery_otp;
 
   const nextAction = (() => {
     if (["going_to_shop", "arrived_at_shop", "reached_shop"].includes(order.status))
@@ -539,31 +502,16 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
         </div>
       </div>
 
-      {showOtp && (
-        <div className="mt-4 rounded-xl bg-primary/5 px-4 py-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              Delivery code — give this to the customer
-            </span>
-            <span className="text-lg font-black tracking-[0.3em] text-primary">
-              {order.delivery_otp}
-            </span>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={whatsAppOtp}
-              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-card px-3 py-1.5 text-xs font-medium text-primary"
-            >
-              <MessageCircle className="h-3.5 w-3.5" />
-              {order.otp_sent_at ? "Resend code to customer" : "Send code to customer"}
-            </button>
-            {order.otp_sent_at && (
-              <span className="text-[11px] text-muted-foreground">
-                Sent {timeAgo(order.otp_sent_at)}
-              </span>
-            )}
-          </div>
+      {showPickupCode && (
+        <div className="mt-4 rounded-xl bg-primary/5 px-4 py-3 text-center">
+          <p className="text-xs text-muted-foreground">
+            {order.driver_name
+              ? `Give this code to ${order.driver_name} when they come for the order`
+              : "Pickup code — give this to the delivery partner"}
+          </p>
+          <p className="mt-1 text-2xl font-black tracking-[0.4em] text-primary">
+            {order.delivery_otp}
+          </p>
         </div>
       )}
 
@@ -755,68 +703,6 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
     <div>
       <Label className="text-sm font-medium">{label}</Label>
       <div className="mt-1.5">{children}</div>
-    </div>
-  );
-}
-
-/** Full-screen, no-dismiss prompt for an order that's been accepted by a
- *  driver but whose delivery code hasn't been sent to the customer yet —
- *  forces the shop to deal with it before doing anything else, instead of
- *  relying on them noticing a small button on the order card. */
-function SendCodeBlocker({ order, onSent }: { order: Order | null; onSent: () => void }) {
-  const [busy, setBusy] = useState(false);
-  if (!order) return null;
-  const hasPhone = !!order.customer_phone?.trim();
-
-  const resolve = async () => {
-    setBusy(true);
-    try {
-      // Mark sent (and unblock) before opening WhatsApp, not after — once
-      // WhatsApp opens the app backgrounds and an in-flight request can get
-      // suspended and never resolve, leaving this screen stuck.
-      await markOtpSent({ data: { orderId: order.id } });
-      onSent();
-      if (hasPhone) {
-        const msg = `Hi ${order.customer_name}, your MOVEBY delivery code is *${order.delivery_otp}*. Please share it with the delivery partner when your order arrives.`;
-        const phone = order.customer_phone.replace(/[^\d]/g, "");
-        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
-      }
-    } catch (err) {
-      toast.error(errorMessage(err, "Failed to update"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] grid place-items-center bg-background/95 p-4 backdrop-blur-sm">
-      <div className="card-elevated w-full max-w-sm p-6 text-center">
-        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary">
-          <MessageCircle className="h-7 w-7" />
-        </div>
-        <p className="text-lg font-bold">Send the delivery code</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {hasPhone
-            ? `Send ${order.customer_name}'s delivery code before doing anything else, so they're ready when the partner arrives.`
-            : `No phone number saved for ${order.customer_name} — share the code with them yourself, then confirm below.`}
-        </p>
-        <div className="mt-4 rounded-xl bg-primary/5 py-3 text-2xl font-black tracking-[0.4em] text-primary">
-          {order.delivery_otp}
-        </div>
-        <Button
-          disabled={busy}
-          onClick={resolve}
-          className="mt-5 h-11 w-full rounded-full font-semibold"
-        >
-          {hasPhone ? (
-            <>
-              <MessageCircle className="mr-1.5 h-4 w-4" /> Send via WhatsApp
-            </>
-          ) : (
-            "I've shared the code"
-          )}
-        </Button>
-      </div>
     </div>
   );
 }
