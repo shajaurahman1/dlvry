@@ -76,7 +76,6 @@ type Order = Awaited<ReturnType<typeof listShopOrders>>[number] & {
   status: string;
   created_at: string;
   expires_at: string | null;
-  delivery_otp: string | null;
   order_description: string;
   customer_name: string;
   customer_phone: string;
@@ -441,13 +440,6 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
 
   const searching = SEARCHING_STATUSES.includes(order.status);
   const mins = minutesLeft(order.expires_at);
-  // The pickup code only matters up to the moment the driver actually takes
-  // the order — once they're heading to the customer it's already served
-  // its purpose, so there's nothing left to show.
-  const showPickupCode =
-    ["going_to_shop", "arrived_at_shop", "reached_shop", "payment_received", "picked_up"].includes(
-      order.status,
-    ) && order.delivery_otp;
 
   const nextAction = (() => {
     if (["going_to_shop", "arrived_at_shop", "reached_shop"].includes(order.status))
@@ -501,19 +493,6 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
           </p>
         </div>
       </div>
-
-      {showPickupCode && (
-        <div className="mt-4 rounded-xl bg-primary/5 px-4 py-3 text-center">
-          <p className="text-xs text-muted-foreground">
-            {order.driver_name
-              ? `Give this code to ${order.driver_name} when they come for the order`
-              : "Pickup code — give this to the delivery partner"}
-          </p>
-          <p className="mt-1 text-2xl font-black tracking-[0.4em] text-primary">
-            {order.delivery_otp}
-          </p>
-        </div>
-      )}
 
       {(order.status === "no_driver_found" || order.status === "expired") && (
         <Button

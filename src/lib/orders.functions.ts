@@ -12,10 +12,6 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.asin(Math.sqrt(a));
 }
 
-function genOtp(): string {
-  return String(Math.floor(1000 + Math.random() * 9000));
-}
-
 const CreateOrderInput = z.object({
   customer_name: z.string().trim().min(1),
   customer_phone: z.string().trim().min(1),
@@ -57,7 +53,6 @@ export const createOrder = createServerFn({ method: "POST" })
     const expiryMin = Number(settings.request_expiry_minutes ?? 10);
 
     const id = crypto.randomUUID();
-    const otp = genOtp();
     const now = nowIso();
     const expiresAt = new Date(Date.now() + expiryMin * 60_000).toISOString();
 
@@ -65,8 +60,8 @@ export const createOrder = createServerFn({ method: "POST" })
       sql: `INSERT INTO orders
               (id, shop_id, customer_name, customer_phone, customer_address, order_description,
                order_amount, delivery_charge, pickup_notes, pickup_lat, pickup_lng, customer_lat,
-               customer_lng, payment_method, status, delivery_otp, expires_at, radius_km, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'searching', ?, ?, ?, ?, ?)`,
+               customer_lng, payment_method, status, expires_at, radius_km, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'searching', ?, ?, ?, ?)`,
       args: [
         id,
         context.userId,
@@ -82,7 +77,6 @@ export const createOrder = createServerFn({ method: "POST" })
         data.customer_lat ?? null,
         data.customer_lng ?? null,
         data.payment_method,
-        otp,
         expiresAt,
         radiusKm,
         now,
@@ -130,7 +124,7 @@ export const createOrder = createServerFn({ method: "POST" })
       args: [context.userId],
     });
 
-    return { id, delivery_otp: otp };
+    return { id };
   });
 
 const TERMINAL_ORDER_STATUSES = ["delivered", "cancelled", "expired", "no_driver_found"];
@@ -379,7 +373,7 @@ const DRIVER_TRANSITIONS: Record<string, string> = {
 
 export const advanceOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: { orderId: string; status: string; otp?: string }) => input)
+  .validator((input: { orderId: string; status: string }) => input)
   .handler(async ({ context, data }) => {
     const { db } = await import("@/integrations/turso/client.server");
     const { createNotification } = await import("@/integrations/turso/notify.server");
@@ -399,37 +393,6 @@ export const advanceOrder = createServerFn({ method: "POST" })
 
     const now = new Date().toISOString();
 
-    // The pickup code is shown on the shop's own screen (with this driver's
-    // name next to it) once they're assigned — the driver has to ask the
-    // shop for it in person before taking the order, which confirms the
-    // right driver actually showed up without ever sending anything to
-    // anyone. A 4-digit code is only 10,000 combinations, so lock out for
-    // 5 minutes after 5 wrong guesses, then reset.
-    if (data.status === "going_to_customer") {
-      const lockedUntil = order.otp_locked_until ? String(order.otp_locked_until) : null;
-      if (lockedUntil && lockedUntil > now) {
-        throw new Error("Too many incorrect attempts. Try again in a few minutes.");
-      }
-      if (!data.otp || data.otp !== order.delivery_otp) {
-        const attempts = Number(order.otp_attempts ?? 0) + 1;
-        if (attempts >= 5) {
-          await db.execute({
-            sql: "UPDATE orders SET otp_attempts = 0, otp_locked_until = ? WHERE id = ?",
-            args: [new Date(Date.now() + 5 * 60_000).toISOString(), data.orderId],
-          });
-          throw new Error("Too many incorrect attempts. Try again in a few minutes.");
-        }
-        await db.execute({
-          sql: "UPDATE orders SET otp_attempts = ? WHERE id = ?",
-          args: [attempts, data.orderId],
-        });
-        throw new Error("Incorrect pickup code.");
-      }
-      await db.execute({
-        sql: "UPDATE orders SET otp_attempts = 0, otp_locked_until = NULL, otp_verified = 1 WHERE id = ?",
-        args: [data.orderId],
-      });
-    }
     const timestampCol: Record<string, string> = {
       arrived_at_shop: "reached_shop_at",
       picked_up: "picked_up_at",
@@ -548,9 +511,8 @@ export const driverCancelOrder = createServerFn({ method: "POST" })
     try {
       await tx.execute({
         sql: `UPDATE orders SET status = 'searching', driver_id = NULL, accepted_at = NULL,
-                delivery_otp = ?, otp_attempts = 0, otp_locked_until = NULL,
                 expires_at = ?, updated_at = ? WHERE id = ?`,
-        args: [String(Math.floor(1000 + Math.random() * 9000)), expiresAt, now, data.orderId],
+        args: [expiresAt, now, data.orderId],
       });
       await tx.execute({
         sql: "UPDATE drivers SET is_busy = 0 WHERE id = ?",
@@ -647,8 +609,8 @@ export const resendOrder = createServerFn({ method: "POST" })
     const now = new Date().toISOString();
 
     await db.execute({
-      sql: "UPDATE orders SET status = 'searching', driver_id = NULL, delivery_otp = ?, expires_at = ?, updated_at = ? WHERE id = ?",
-      args: [String(Math.floor(1000 + Math.random() * 9000)), expiresAt, now, data.orderId],
+      sql: "UPDATE orders SET status = 'searching', driver_id = NULL, expires_at = ?, updated_at = ? WHERE id = ?",
+      args: [expiresAt, now, data.orderId],
     });
     await db.execute({
       sql: "INSERT INTO order_status_history (id, order_id, status, changed_by) VALUES (?, ?, 'searching', ?)",
