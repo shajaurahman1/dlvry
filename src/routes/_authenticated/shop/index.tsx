@@ -156,31 +156,6 @@ function ShopDashboard() {
     };
   }, [orders]);
 
-  // Blocks the dashboard until the shop sends (or acknowledges sending) the
-  // delivery code for an order that's been accepted by a driver — easy to
-  // forget when it's just a small button buried in the order card.
-  const pendingOtpOrder = useMemo(
-    () =>
-      orders.find(
-        (o) =>
-          !TERMINAL_STATUSES.includes(o.status) &&
-          !SEARCHING_STATUSES.includes(o.status) &&
-          o.delivery_otp &&
-          !o.otp_sent_at,
-      ) ?? null,
-    [orders],
-  );
-
-  // Updates local state immediately, synchronously — the blocker reads
-  // from this, so it closes the instant the shop taps send, regardless of
-  // how long the actual markOtpSent request takes (which runs separately
-  // in the background and is never what the UI waits on).
-  const markOtpSentLocally = (orderId: string) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, otp_sent_at: new Date().toISOString() } : o)),
-    );
-  };
-
   const filtered = useMemo(() => {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -233,7 +208,6 @@ function ShopDashboard() {
 
   return (
     <AppShell subtitle={shop.shop_name} title="Dispatch">
-      <SendCodeBlocker order={pendingOtpOrder} onSent={markOtpSentLocally} />
       <NotificationPromptCard />
       {/* Kept out of AppShell's title row (which doesn't wrap) so these
           don't get squeezed next to "Dispatch" and force the page to
@@ -755,63 +729,6 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
     <div>
       <Label className="text-sm font-medium">{label}</Label>
       <div className="mt-1.5">{children}</div>
-    </div>
-  );
-}
-
-/** Full-screen, no-dismiss prompt for an order that's been accepted by a
- *  driver but whose delivery code hasn't been sent to the customer yet —
- *  forces the shop to deal with it before doing anything else, instead of
- *  relying on them noticing a small button on the order card. Tapping the
- *  button unblocks immediately and synchronously; the actual "mark sent"
- *  call runs in the background afterward, so a slow or backgrounded
- *  request (WhatsApp opening suspends the app) can never leave this
- *  screen stuck. */
-function SendCodeBlocker({
-  order,
-  onSent,
-}: {
-  order: Order | null;
-  onSent: (orderId: string) => void;
-}) {
-  if (!order) return null;
-  const hasPhone = !!order.customer_phone?.trim();
-
-  const resolve = () => {
-    onSent(order.id);
-    if (hasPhone) {
-      const msg = `Hi ${order.customer_name}, your MOVEBY delivery code is *${order.delivery_otp}*. Please share it with the delivery partner when your order arrives.`;
-      const phone = order.customer_phone.replace(/[^\d]/g, "");
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
-    }
-    markOtpSent({ data: { orderId: order.id } }).catch(() => {});
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] grid place-items-center bg-background/95 p-4 backdrop-blur-sm">
-      <div className="card-elevated w-full max-w-sm p-6 text-center">
-        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary">
-          <MessageCircle className="h-7 w-7" />
-        </div>
-        <p className="text-lg font-bold">Send the delivery code</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {hasPhone
-            ? `Send ${order.customer_name}'s delivery code before doing anything else, so they're ready when the partner arrives.`
-            : `No phone number saved for ${order.customer_name} — share the code with them yourself, then confirm below.`}
-        </p>
-        <div className="mt-4 rounded-xl bg-primary/5 py-3 text-2xl font-black tracking-[0.4em] text-primary">
-          {order.delivery_otp}
-        </div>
-        <Button onClick={resolve} className="mt-5 h-11 w-full rounded-full font-semibold">
-          {hasPhone ? (
-            <>
-              <MessageCircle className="mr-1.5 h-4 w-4" /> Send via WhatsApp
-            </>
-          ) : (
-            "I've shared the code"
-          )}
-        </Button>
-      </div>
     </div>
   );
 }
