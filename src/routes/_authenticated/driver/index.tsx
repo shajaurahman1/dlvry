@@ -795,19 +795,20 @@ Thank you.`;
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}`, "_blank");
   };
 
-  // Which step comes next for this driver.
+  // Which step comes next for this driver. Trimmed to the taps that
+  // actually matter — no separate "arrived at shop" (the shop just confirms
+  // payment whenever the driver shows up) and "picked up" folds into the
+  // same tap as "going to customer" since they're the same moment.
   const step = (() => {
     switch (order.status) {
       case "accepted":
-        return { status: "going_to_shop", label: "Start — going to shop" };
       case "going_to_shop":
-        return { status: "arrived_at_shop", label: "I've arrived at the shop" };
       case "arrived_at_shop":
       case "reached_shop":
         return null; // waiting for shop to confirm payment
       case "payment_received":
-        return { status: "picked_up", label: "Order picked up" };
-      case "picked_up":
+        return { status: "going_to_customer", label: "Picked up — heading to customer" };
+      case "picked_up": // only reachable by an order already mid-flight on the old path
         return { status: "going_to_customer", label: "Going to customer" };
       case "going_to_customer":
       case "out_for_delivery":
@@ -908,7 +909,7 @@ Thank you.`;
       </div>
 
       <div className="mt-6 space-y-2">
-        {(order.status === "arrived_at_shop" || order.status === "reached_shop") && (
+        {["going_to_shop", "arrived_at_shop", "reached_shop"].includes(order.status) && (
           <div className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
             Waiting for the shop to confirm your payment.
           </div>

@@ -467,6 +467,14 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
       toast.error("Customer number not given");
       return;
     }
+    // Mark sent before opening WhatsApp — opening it backgrounds the app,
+    // which can suspend an in-flight request before it resolves.
+    try {
+      await markOtpSent({ data: { orderId: order.id } });
+      onChange();
+    } catch {
+      /* best-effort — the blocker will catch it next load if this fails */
+    }
     const msg = `Hi ${order.customer_name}, your MOVEBY delivery code is *${order.delivery_otp}*. Please share it with the delivery partner when your order arrives.`;
     const phone = order.customer_phone.replace(/[^\d]/g, "");
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
@@ -479,7 +487,7 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
   };
 
   const nextAction = (() => {
-    if (order.status === "arrived_at_shop" || order.status === "reached_shop")
+    if (["going_to_shop", "arrived_at_shop", "reached_shop"].includes(order.status))
       return { label: "Confirm payment received", action: confirm };
     if (searching) return { label: "Cancel request", action: cancel, danger: true };
     return null;
@@ -763,13 +771,16 @@ function SendCodeBlocker({ order, onSent }: { order: Order | null; onSent: () =>
   const resolve = async () => {
     setBusy(true);
     try {
+      // Mark sent (and unblock) before opening WhatsApp, not after — once
+      // WhatsApp opens the app backgrounds and an in-flight request can get
+      // suspended and never resolve, leaving this screen stuck.
+      await markOtpSent({ data: { orderId: order.id } });
+      onSent();
       if (hasPhone) {
         const msg = `Hi ${order.customer_name}, your MOVEBY delivery code is *${order.delivery_otp}*. Please share it with the delivery partner when your order arrives.`;
         const phone = order.customer_phone.replace(/[^\d]/g, "");
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
       }
-      await markOtpSent({ data: { orderId: order.id } });
-      onSent();
     } catch (err) {
       toast.error(errorMessage(err, "Failed to update"));
     } finally {
