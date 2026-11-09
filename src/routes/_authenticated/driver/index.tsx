@@ -752,7 +752,7 @@ function ActiveOrder({
     } catch (err) {
       toast.error(
         err instanceof Error && err.message.toLowerCase().includes("code")
-          ? "That pickup code doesn't match. Ask the shop for the code."
+          ? "That delivery code doesn't match. Ask the shop for the code."
           : errorMessage(err, "Could not update the order."),
       );
     } finally {
@@ -796,25 +796,24 @@ Thank you.`;
   };
 
   // Which step comes next for this driver. No separate "arrived at shop"
-  // tap (the shop just confirms payment whenever the driver shows up); the
-  // pickup code check (below) replaces the old customer-facing delivery
-  // code, so the final "delivered" tap no longer needs any code at all.
+  // tap (the shop just confirms payment whenever the driver shows up), and
+  // "picked up" folds into the same tap as "going to customer" since
+  // they're the same moment. "arrived_at_customer" isn't handled here — it
+  // needs the delivery code from the customer, so it gets its own block
+  // below instead of a plain button.
   const step = (() => {
     switch (order.status) {
+      case "payment_received":
+        return { status: "going_to_customer", label: "Picked up — heading to customer" };
+      case "picked_up": // only reachable by an order already mid-flight on an older path
+        return { status: "going_to_customer", label: "Going to customer" };
       case "going_to_customer":
       case "out_for_delivery":
         return { status: "arrived_at_customer", label: "Arrived at customer" };
-      case "arrived_at_customer":
-        return { status: "delivered", label: "Mark delivered" };
       default:
         return null;
     }
   })();
-  // The shop shows this code on their own screen once a driver is
-  // assigned, with that driver's name next to it — asking for it in
-  // person before handing over the order confirms the right driver
-  // actually showed up, without ever having to send anything to anyone.
-  const needsPickupCode = ["payment_received", "picked_up"].includes(order.status);
 
   return (
     <div className="card-elevated p-6">
@@ -912,10 +911,19 @@ Thank you.`;
             Waiting for the shop to confirm your payment.
           </div>
         )}
-        {needsPickupCode && (
+        {step && (
+          <Button
+            disabled={busy}
+            className="h-11 w-full rounded-full font-semibold"
+            onClick={() => advance(step.status)}
+          >
+            {step.label}
+          </Button>
+        )}
+        {order.status === "arrived_at_customer" && (
           <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-4">
             <p className="text-xs text-muted-foreground">
-              Ask the shop for the pickup code before taking the order.
+              Ask the customer for the 4-digit delivery code shared with the shop.
             </p>
             <div className="flex gap-2">
               <Input
@@ -929,21 +937,12 @@ Thank you.`;
               <Button
                 disabled={busy || otp.length !== 4}
                 className="rounded-full font-semibold"
-                onClick={() => advance("going_to_customer", otp)}
+                onClick={() => advance("delivered", otp)}
               >
-                Confirm pickup
+                Complete
               </Button>
             </div>
           </div>
-        )}
-        {step && (
-          <Button
-            disabled={busy}
-            className="h-11 w-full rounded-full font-semibold"
-            onClick={() => advance(step.status)}
-          >
-            {step.label}
-          </Button>
         )}
         {canCancel && (
           <Button

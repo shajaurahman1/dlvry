@@ -212,6 +212,25 @@ export const clearDriverHistory = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Marks the shop as having sent the delivery OTP to the customer (via
+ *  WhatsApp or otherwise) — lets the shop dashboard stop blocking on it. */
+export const markOtpSent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { orderId: string }) => input)
+  .handler(async ({ context, data }) => {
+    const { db } = await import("@/integrations/turso/client.server");
+    const order = (
+      await db.execute({ sql: "SELECT shop_id FROM orders WHERE id = ?", args: [data.orderId] })
+    ).rows[0];
+    if (!order) throw new Error("Order not found.");
+    if (order.shop_id !== context.userId) throw new Error("Not your order.");
+    await db.execute({
+      sql: "UPDATE orders SET otp_sent_at = ? WHERE id = ?",
+      args: [new Date().toISOString(), data.orderId],
+    });
+    return { ok: true };
+  });
+
 /** Flips orders nobody accepted before their expiry to 'no_driver_found' so
  *  the shop can resend. Cheap enough to call opportunistically from the
  *  driver dashboard's poll loop instead of needing a cron job. */
@@ -399,13 +418,10 @@ export const advanceOrder = createServerFn({ method: "POST" })
 
     const now = new Date().toISOString();
 
-    // The pickup code is shown on the shop's own screen (with this driver's
-    // name next to it) once they're assigned — the driver has to ask the
-    // shop for it in person before taking the order, which confirms the
-    // right driver actually showed up without ever sending anything to
-    // anyone. A 4-digit code is only 10,000 combinations, so lock out for
-    // 5 minutes after 5 wrong guesses, then reset.
-    if (data.status === "going_to_customer") {
+    // A 4-digit code is only 10,000 combinations — without this, a driver
+    // could script-guess it to fake-confirm a delivery they never made.
+    // Lock out for 5 minutes after 5 wrong guesses, then reset.
+    if (data.status === "delivered") {
       const lockedUntil = order.otp_locked_until ? String(order.otp_locked_until) : null;
       if (lockedUntil && lockedUntil > now) {
         throw new Error("Too many incorrect attempts. Try again in a few minutes.");
@@ -423,13 +439,14 @@ export const advanceOrder = createServerFn({ method: "POST" })
           sql: "UPDATE orders SET otp_attempts = ? WHERE id = ?",
           args: [attempts, data.orderId],
         });
-        throw new Error("Incorrect pickup code.");
+        throw new Error("Incorrect delivery code.");
       }
       await db.execute({
         sql: "UPDATE orders SET otp_attempts = 0, otp_locked_until = NULL, otp_verified = 1 WHERE id = ?",
         args: [data.orderId],
       });
     }
+
     const timestampCol: Record<string, string> = {
       arrived_at_shop: "reached_shop_at",
       picked_up: "picked_up_at",
@@ -548,7 +565,7 @@ export const driverCancelOrder = createServerFn({ method: "POST" })
     try {
       await tx.execute({
         sql: `UPDATE orders SET status = 'searching', driver_id = NULL, accepted_at = NULL,
-                delivery_otp = ?, otp_attempts = 0, otp_locked_until = NULL,
+                delivery_otp = ?, otp_sent_at = NULL, otp_attempts = 0, otp_locked_until = NULL,
                 expires_at = ?, updated_at = ? WHERE id = ?`,
         args: [String(Math.floor(1000 + Math.random() * 9000)), expiresAt, now, data.orderId],
       });
