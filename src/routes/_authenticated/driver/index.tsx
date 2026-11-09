@@ -21,6 +21,7 @@ import { RoleSwitchButton } from "@/components/role-switch-button";
 import { AppShell } from "@/components/app-shell";
 import { NotificationPromptCard } from "@/components/notification-prompt-card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useLiveLocation } from "@/lib/geo";
 import { LocationGate } from "@/components/location-gate";
@@ -723,6 +724,7 @@ function ActiveOrder({
 }) {
   const { profile } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [otp, setOtp] = useState("");
   const canCancel = ["going_to_shop", "arrived_at_shop", "reached_shop"].includes(order.status);
   const shop = order.shop_name
     ? {
@@ -741,14 +743,18 @@ function ActiveOrder({
     "delivered",
   ].includes(order.status);
 
-  const advance = async (status: string) => {
+  const advance = async (status: string, code?: string) => {
     setBusy(true);
     try {
-      await advanceOrder({ data: { orderId: order.id, status } });
+      await advanceOrder({ data: { orderId: order.id, status, otp: code } });
       if (status === "delivered") onDelivered();
       onChange();
     } catch (err) {
-      toast.error(errorMessage(err, "Could not update the order."));
+      toast.error(
+        err instanceof Error && err.message.toLowerCase().includes("code")
+          ? "That delivery code doesn't match. Ask the shop for the code."
+          : errorMessage(err, "Could not update the order."),
+      );
     } finally {
       setBusy(false);
     }
@@ -792,8 +798,9 @@ Thank you.`;
   // Which step comes next for this driver. No separate "arrived at shop"
   // tap (the shop just confirms payment whenever the driver shows up), and
   // "picked up" folds into the same tap as "going to customer" since
-  // they're the same moment — no code needed at any step, it's a cash
-  // handoff the shop and driver sort out in person.
+  // they're the same moment. "arrived_at_customer" isn't handled here — it
+  // needs the delivery code from the customer, so it gets its own block
+  // below instead of a plain button.
   const step = (() => {
     switch (order.status) {
       case "payment_received":
@@ -803,8 +810,6 @@ Thank you.`;
       case "going_to_customer":
       case "out_for_delivery":
         return { status: "arrived_at_customer", label: "Arrived at customer" };
-      case "arrived_at_customer":
-        return { status: "delivered", label: "Mark delivered" };
       default:
         return null;
     }
@@ -914,6 +919,30 @@ Thank you.`;
           >
             {step.label}
           </Button>
+        )}
+        {order.status === "arrived_at_customer" && (
+          <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <p className="text-xs text-muted-foreground">
+              Ask the customer for the 4-digit delivery code shared with the shop.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                inputMode="numeric"
+                maxLength={4}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                placeholder="0000"
+                className="text-center text-lg font-bold tracking-[0.4em]"
+              />
+              <Button
+                disabled={busy || otp.length !== 4}
+                className="rounded-full font-semibold"
+                onClick={() => advance("delivered", otp)}
+              >
+                Complete
+              </Button>
+            </div>
+          </div>
         )}
         {canCancel && (
           <Button
