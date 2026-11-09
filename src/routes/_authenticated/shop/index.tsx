@@ -478,6 +478,12 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
     const msg = `Hi ${order.customer_name}, your MOVEBY delivery code is *${order.delivery_otp}*. Please share it with the delivery partner when your order arrives.`;
     const phone = order.customer_phone.replace(/[^\d]/g, "");
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+    try {
+      await markOtpSent({ data: { orderId: order.id } });
+      onChange();
+    } catch {
+      /* best-effort — the blocker will catch it next load if this fails */
+    }
   };
 
   const nextAction = (() => {
