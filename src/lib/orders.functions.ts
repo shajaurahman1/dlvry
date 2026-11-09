@@ -382,9 +382,15 @@ export const acceptOrder = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// "going_to_shop" -> "arrived_at_shop" and "picked_up" -> "going_to_customer"
+// are kept for any order already mid-flight on the old step-by-step path —
+// new orders skip both: the shop can confirm payment as soon as the driver
+// accepts (no separate "arrived" tap needed), and "picked up" folds into
+// the same tap as "going to customer" (payment_received -> going_to_customer
+// directly) since they happened as one motion anyway.
 const DRIVER_TRANSITIONS: Record<string, string> = {
   going_to_shop: "arrived_at_shop",
-  payment_received: "picked_up",
+  payment_received: "going_to_customer",
   picked_up: "going_to_customer",
   going_to_customer: "arrived_at_customer",
   arrived_at_customer: "delivered",
@@ -443,6 +449,10 @@ export const advanceOrder = createServerFn({ method: "POST" })
     const timestampCol: Record<string, string> = {
       arrived_at_shop: "reached_shop_at",
       picked_up: "picked_up_at",
+      // Orders now jump payment_received -> going_to_customer directly
+      // (the merged "picked up & heading out" tap), so record picked_up_at
+      // here too — otherwise it would never get set on the new flow.
+      going_to_customer: "picked_up_at",
       delivered: "delivered_at",
     };
     const col = timestampCol[data.status];
@@ -501,8 +511,10 @@ export const confirmPayment = createServerFn({ method: "POST" })
     ).rows[0];
     if (!order) throw new Error("Order not found.");
     if (order.shop_id !== context.userId) throw new Error("Not your order.");
-    if (order.status !== "arrived_at_shop")
-      throw new Error("Payment can only be confirmed after the driver arrives.");
+    // No separate "arrived at shop" driver tap anymore — the shop confirms
+    // payment whenever the driver physically shows up, any time after accept.
+    if (!["going_to_shop", "arrived_at_shop", "reached_shop"].includes(String(order.status)))
+      throw new Error("Payment can only be confirmed after a delivery partner accepts.");
 
     const now = new Date().toISOString();
     await db.execute({
