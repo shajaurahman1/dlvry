@@ -49,7 +49,13 @@ import {
   ShieldCheck,
   Trash2,
 } from "lucide-react";
-import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, fmtINR, timeAgo, minutesLeft } from "@/lib/orders";
+import {
+  ORDER_STATUS_LABEL,
+  ORDER_STATUS_TONE,
+  fmtCurrency,
+  timeAgo,
+  minutesLeft,
+} from "@/lib/orders";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/driver/")({
@@ -71,6 +77,7 @@ type Driver = {
   verification_status: string;
   verification_notes: string | null;
   lifetime_earnings?: number;
+  currency?: string | null;
 };
 type Order = {
   id: string;
@@ -94,6 +101,7 @@ type Order = {
   shop_name?: string;
   shop_phone?: string | null;
   shop_address?: string;
+  shop_currency?: string | null;
 };
 
 interface NearbyOrder {
@@ -111,6 +119,7 @@ interface NearbyOrder {
   created_at: string;
   payment_method: string;
   expires_at: string | null;
+  shop_currency?: string | null;
 }
 
 function DriverDashboard() {
@@ -249,7 +258,7 @@ function DriverDashboard() {
     if (prevNearbyIdsRef.current.size > 0 && fresh.length > 0 && !active) {
       const top = fresh[0];
       toast.success(`New pickup ${top.distance_km.toFixed(1)} km away`, {
-        description: `${top.shop_name} · ${fmtINR(top.total_amount)}`,
+        description: `${top.shop_name} · ${fmtCurrency(top.total_amount, top.shop_currency)}`,
       });
       try {
         // Short chirp — best-effort, silent on browsers that block autoplay.
@@ -386,7 +395,7 @@ function DriverDashboard() {
               </p>
               <p className="truncate text-xs text-muted-foreground">
                 {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)} · Cash cap{" "}
-                {fmtINR(driver.available_cash)}
+                {fmtCurrency(driver.available_cash, driver.currency)}
               </p>
             </div>
             <Switch
@@ -459,23 +468,23 @@ function DriverDashboard() {
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Stat
               label="Today"
-              value={fmtINR(stats.todayEarn)}
+              value={fmtCurrency(stats.todayEarn, driver.currency)}
               icon={<Wallet className="h-4 w-4" />}
               accent
             />
             <Stat
               label="This week"
-              value={fmtINR(stats.weekEarn)}
+              value={fmtCurrency(stats.weekEarn, driver.currency)}
               icon={<Wallet className="h-4 w-4" />}
             />
             <Stat
               label="This month"
-              value={fmtINR(stats.monthEarn)}
+              value={fmtCurrency(stats.monthEarn, driver.currency)}
               icon={<Wallet className="h-4 w-4" />}
             />
             <Stat
               label="Lifetime"
-              value={fmtINR(lifetimeEarn)}
+              value={fmtCurrency(lifetimeEarn, driver.currency)}
               icon={<TrendingUp className="h-4 w-4" />}
             />
           </div>
@@ -606,7 +615,7 @@ function DriverDashboard() {
                     {ORDER_STATUS_LABEL[o.status]}
                   </span>
                   <p className="mt-1 text-sm font-bold text-primary">
-                    +{fmtINR(o.delivery_charge)}
+                    +{fmtCurrency(o.delivery_charge, o.shop_currency)}
                   </p>
                 </div>
               </div>
@@ -692,8 +701,12 @@ function NearbyCard({
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground">You pay</p>
-          <p className="text-lg font-black">{fmtINR(order.order_amount)}</p>
-          <p className="mt-1 text-xs text-primary">+ {fmtINR(order.delivery_charge)} yours</p>
+          <p className="text-lg font-black">
+            {fmtCurrency(order.order_amount, order.shop_currency)}
+          </p>
+          <p className="mt-1 text-xs text-primary">
+            + {fmtCurrency(order.delivery_charge, order.shop_currency)} yours
+          </p>
         </div>
       </div>
       <div className="mt-4 flex gap-2">
@@ -858,15 +871,21 @@ Thank you.`;
         <div className="rounded-xl bg-muted/50 p-4">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Pay the shop ({order.payment_method})</span>
-            <span className="font-semibold">{fmtINR(order.order_amount)}</span>
+            <span className="font-semibold">
+              {fmtCurrency(order.order_amount, order.shop_currency)}
+            </span>
           </div>
           <div className="mt-1 flex justify-between">
             <span className="text-muted-foreground">You collect from customer</span>
-            <span className="font-semibold">{fmtINR(order.total_amount)}</span>
+            <span className="font-semibold">
+              {fmtCurrency(order.total_amount, order.shop_currency)}
+            </span>
           </div>
           <div className="mt-1 flex justify-between text-primary">
             <span>Your earning</span>
-            <span className="font-semibold">{fmtINR(order.delivery_charge)}</span>
+            <span className="font-semibold">
+              {fmtCurrency(order.delivery_charge, order.shop_currency)}
+            </span>
           </div>
         </div>
 

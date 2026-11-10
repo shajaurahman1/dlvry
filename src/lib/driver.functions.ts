@@ -18,6 +18,7 @@ const DriverInput = z.object({
   insurance_url: z.string().url().optional(),
   puc_url: z.string().url().optional(),
   payout_upi: z.string().trim().optional(),
+  currency: z.string().trim().min(1).optional(),
 });
 
 export const getMyDriver = createServerFn({ method: "GET" })
@@ -25,7 +26,10 @@ export const getMyDriver = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { db } = await import("@/integrations/turso/client.server");
     const { toPlain } = await import("@/integrations/turso/profile-helpers.server");
-    const res = await db.execute({ sql: "SELECT * FROM drivers WHERE id = ?", args: [context.userId] });
+    const res = await db.execute({
+      sql: "SELECT * FROM drivers WHERE id = ?",
+      args: [context.userId],
+    });
     return toPlain(res.rows[0]);
   });
 
@@ -47,8 +51,8 @@ export const upsertMyDriver = createServerFn({ method: "POST" })
           sql: `INSERT INTO drivers
                   (id, date_of_birth, home_address, emergency_contact, vehicle_type, vehicle_number,
                    available_cash, bank_details, search_radius_km, gov_id_url, selfie_url, licence_url,
-                   rc_url, insurance_url, puc_url, payout_upi)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   rc_url, insurance_url, puc_url, payout_upi, currency)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                   date_of_birth = excluded.date_of_birth, home_address = excluded.home_address,
                   emergency_contact = excluded.emergency_contact, vehicle_type = excluded.vehicle_type,
@@ -62,12 +66,28 @@ export const upsertMyDriver = createServerFn({ method: "POST" })
                   rc_url = COALESCE(excluded.rc_url, drivers.rc_url),
                   insurance_url = COALESCE(excluded.insurance_url, drivers.insurance_url),
                   puc_url = COALESCE(excluded.puc_url, drivers.puc_url),
-                  payout_upi = excluded.payout_upi, updated_at = ?`,
+                  payout_upi = excluded.payout_upi,
+                  currency = COALESCE(excluded.currency, drivers.currency),
+                  updated_at = ?`,
           args: [
-            context.userId, data.date_of_birth ?? null, data.home_address ?? null, data.emergency_contact ?? null,
-            data.vehicle_type, data.vehicle_number ?? null, data.available_cash ?? 0, data.bank_details ?? null,
-            data.search_radius_km ?? 3, data.gov_id_url ?? null, data.selfie_url ?? null, data.licence_url ?? null,
-            data.rc_url ?? null, data.insurance_url ?? null, data.puc_url ?? null, data.payout_upi ?? null, nowIso(),
+            context.userId,
+            data.date_of_birth ?? null,
+            data.home_address ?? null,
+            data.emergency_contact ?? null,
+            data.vehicle_type,
+            data.vehicle_number ?? null,
+            data.available_cash ?? 0,
+            data.bank_details ?? null,
+            data.search_radius_km ?? 3,
+            data.gov_id_url ?? null,
+            data.selfie_url ?? null,
+            data.licence_url ?? null,
+            data.rc_url ?? null,
+            data.insurance_url ?? null,
+            data.puc_url ?? null,
+            data.payout_upi ?? null,
+            data.currency ?? "INR",
+            nowIso(),
           ],
         },
         {
@@ -127,7 +147,8 @@ export const listDrivers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .validator((input: { status?: string } | undefined) => input ?? {})
   .handler(async ({ context, data }) => {
-    const { requireAdmin, toPlainRows } = await import("@/integrations/turso/profile-helpers.server");
+    const { requireAdmin, toPlainRows } =
+      await import("@/integrations/turso/profile-helpers.server");
     await requireAdmin(context.userId);
     const { db } = await import("@/integrations/turso/client.server");
     const res = data.status
@@ -157,11 +178,23 @@ export const setDriverStatus = createServerFn({ method: "POST" })
     const { db } = await import("@/integrations/turso/client.server");
     await db.execute({
       sql: "UPDATE drivers SET approval_status = COALESCE(?, approval_status), verification_status = COALESCE(?, verification_status), verification_notes = COALESCE(?, verification_notes), updated_at = ? WHERE id = ?",
-      args: [data.approval_status ?? null, data.verification_status ?? null, data.verification_notes ?? null, nowIso(), data.id],
+      args: [
+        data.approval_status ?? null,
+        data.verification_status ?? null,
+        data.verification_notes ?? null,
+        nowIso(),
+        data.id,
+      ],
     });
     await db.execute({
       sql: "INSERT INTO admin_logs (id, admin_id, action, target_type, target_id, metadata) VALUES (?, ?, ?, 'driver', ?, ?)",
-      args: [crypto.randomUUID(), context.userId, "update_driver_status", data.id, JSON.stringify(data)],
+      args: [
+        crypto.randomUUID(),
+        context.userId,
+        "update_driver_status",
+        data.id,
+        JSON.stringify(data),
+      ],
     });
     return { ok: true };
   });

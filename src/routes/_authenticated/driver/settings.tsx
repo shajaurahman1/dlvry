@@ -18,8 +18,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { CURRENCIES } from "@/lib/orders";
 
-export const Route = createFileRoute("/_authenticated/driver/settings")({ head: () => pageHead("Delivery partner settings", "Update your delivery profile and alert radius on MOVEBY."),
+export const Route = createFileRoute("/_authenticated/driver/settings")({
+  head: () =>
+    pageHead(
+      "Delivery partner settings",
+      "Update your delivery profile and alert radius on MOVEBY.",
+    ),
   component: DriverSettings,
 });
 
@@ -42,6 +48,7 @@ function DriverSettings() {
     payout_upi: "",
     bank_details: "",
     search_radius_km: "3",
+    currency: "INR",
   });
 
   useEffect(() => {
@@ -60,6 +67,7 @@ function DriverSettings() {
         payout_upi: (d?.payout_upi as string) ?? "",
         bank_details: (d?.bank_details as string) ?? "",
         search_radius_km: String(d?.search_radius_km ?? 3),
+        currency: (d?.currency as string) ?? "INR",
       });
       setReady(true);
     })();
@@ -70,7 +78,9 @@ function DriverSettings() {
     if (!user) return;
     setBusy(true);
     try {
-      await updateProfile({ data: { full_name: f.full_name, phone: f.phone, whatsapp: f.whatsapp } });
+      await updateProfile({
+        data: { full_name: f.full_name, phone: f.phone, whatsapp: f.whatsapp },
+      });
       await upsertMyDriver({
         data: {
           date_of_birth: f.date_of_birth || undefined,
@@ -81,6 +91,7 @@ function DriverSettings() {
           payout_upi: f.payout_upi || undefined,
           bank_details: f.bank_details || undefined,
           search_radius_km: Number(f.search_radius_km) || 3,
+          currency: f.currency,
         },
       });
       toast.success("Profile updated");
@@ -179,7 +190,7 @@ function DriverSettings() {
             />
           </div>
           <div>
-            <Label>Cash in hand (₹)</Label>
+            <Label>Cash in hand ({CURRENCIES[f.currency]?.symbol ?? "₹"})</Label>
             <Input
               className="mt-1.5"
               type="number"
@@ -187,6 +198,24 @@ function DriverSettings() {
               value={f.available_cash}
               onChange={(e) => setF({ ...f, available_cash: e.target.value })}
             />
+          </div>
+          <div>
+            <Label>Currency</Label>
+            <Select value={f.currency} onValueChange={(v) => setF({ ...f, currency: v })}>
+              <SelectTrigger className="mt-1.5">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(CURRENCIES).map(([code, c]) => (
+                  <SelectItem key={code} value={code}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              What your earnings are shown in — the shops you deliver for should match.
+            </p>
           </div>
           <div>
             <Label>Alert radius</Label>

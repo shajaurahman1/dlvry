@@ -18,18 +18,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { CURRENCIES } from "@/lib/orders";
 import type { PickedLocation } from "@/components/location-picker";
 
 const LocationPicker = lazy(() =>
   import("@/components/location-picker").then((m) => ({ default: m.LocationPicker })),
 );
 
-export const Route = createFileRoute("/_authenticated/shop/settings")({ head: () => pageHead("Shop settings", "Update your shop details and location on MOVEBY."), component: ShopSettings });
+export const Route = createFileRoute("/_authenticated/shop/settings")({
+  head: () => pageHead("Shop settings", "Update your shop details and location on MOVEBY."),
+  component: ShopSettings,
+});
 
 type Shop = NonNullable<Awaited<ReturnType<typeof getMyShop>>> & {
-  id: string; shop_name: string; address: string; shop_category: string | null;
-  owner_name: string | null; shop_phone: string | null; gst_number: string | null;
-  pan_number: string | null; licence_number: string | null; latitude: number; longitude: number;
+  id: string;
+  shop_name: string;
+  address: string;
+  shop_category: string | null;
+  owner_name: string | null;
+  shop_phone: string | null;
+  gst_number: string | null;
+  pan_number: string | null;
+  licence_number: string | null;
+  latitude: number;
+  longitude: number;
+  currency?: string | null;
 };
 
 function ShopSettings() {
@@ -46,6 +59,7 @@ function ShopSettings() {
     gst_number: "",
     pan_number: "",
     licence_number: "",
+    currency: "INR",
     full_name: "",
     phone: "",
     whatsapp: "",
@@ -67,6 +81,7 @@ function ShopSettings() {
         gst_number: data.gst_number ?? "",
         pan_number: data.pan_number ?? "",
         licence_number: data.licence_number ?? "",
+        currency: data.currency ?? "INR",
         full_name: (profile?.full_name as string) ?? "",
         phone: (profile?.phone as string) ?? "",
         whatsapp: (profile?.whatsapp as string) ?? "",
@@ -80,7 +95,9 @@ function ShopSettings() {
     if (!shop || !coords) return;
     setBusy(true);
     try {
-      await updateProfile({ data: { full_name: form.full_name, phone: form.phone, whatsapp: form.whatsapp } });
+      await updateProfile({
+        data: { full_name: form.full_name, phone: form.phone, whatsapp: form.whatsapp },
+      });
       await upsertMyShop({
         data: {
           shop_name: form.shop_name,
@@ -91,6 +108,7 @@ function ShopSettings() {
           gst_number: form.gst_number || undefined,
           pan_number: form.pan_number || undefined,
           licence_number: form.licence_number || undefined,
+          currency: form.currency,
           latitude: coords.lat,
           longitude: coords.lng,
         },
@@ -149,6 +167,25 @@ function ShopSettings() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label className="text-sm font-medium">Currency</Label>
+            <Select value={form.currency} onValueChange={(v) => setForm({ ...form, currency: v })}>
+              <SelectTrigger className="mt-1.5">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(CURRENCIES).map(([code, c]) => (
+                  <SelectItem key={code} value={code}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              What your order and delivery-charge amounts are in — not a conversion, just the label
+              on the numbers you type.
+            </p>
           </div>
           <div>
             <Label className="text-sm font-medium">Owner name</Label>
