@@ -18,7 +18,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { CURRENCIES } from "@/lib/orders";
+import { CURRENCIES, currencyForCountry } from "@/lib/orders";
+import { getPositionOnce, reverseGeocodeLookup } from "@/lib/geo";
+import { MapPin } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/driver/settings")({
   head: () =>
@@ -36,6 +38,7 @@ function DriverSettings() {
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [detecting, setDetecting] = useState(false);
   const [f, setF] = useState({
     full_name: "",
     phone: "",
@@ -72,6 +75,25 @@ function DriverSettings() {
       setReady(true);
     })();
   }, [user, profile]);
+
+  const detectCurrency = async () => {
+    setDetecting(true);
+    try {
+      const fix = await getPositionOnce({ highAccuracy: false, timeout: 8000 });
+      const geo = await reverseGeocodeLookup(fix.lat, fix.lng);
+      if (!geo.countryCode) {
+        toast.error("Couldn't figure out your country — check GPS and try again.");
+        return;
+      }
+      const detected = currencyForCountry(geo.countryCode);
+      setF((prev) => ({ ...prev, currency: detected }));
+      toast.success(`Set to ${CURRENCIES[detected]?.label ?? detected}`);
+    } catch (err) {
+      toast.error(errorMessage(err, "Couldn't get your location"));
+    } finally {
+      setDetecting(false);
+    }
+  };
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,20 +223,33 @@ function DriverSettings() {
           </div>
           <div>
             <Label>Currency</Label>
-            <Select value={f.currency} onValueChange={(v) => setF({ ...f, currency: v })}>
-              <SelectTrigger className="mt-1.5">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(CURRENCIES).map(([code, c]) => (
-                  <SelectItem key={code} value={code}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="mt-1.5 flex gap-2">
+              <Select value={f.currency} onValueChange={(v) => setF({ ...f, currency: v })}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(CURRENCIES).map(([code, c]) => (
+                    <SelectItem key={code} value={code}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={detecting}
+                onClick={detectCurrency}
+                aria-label="Detect from my location"
+              >
+                <MapPin className="h-4 w-4" />
+              </Button>
+            </div>
             <p className="mt-1.5 text-xs text-muted-foreground">
-              What your earnings are shown in — the shops you deliver for should match.
+              What your earnings are shown in — the shops you deliver for should match. Tap{" "}
+              <MapPin className="inline h-3 w-3" /> to set it from where you are right now.
             </p>
           </div>
           <div>

@@ -80,6 +80,56 @@ export function fmtINR(n: number | string | null | undefined) {
   return fmtCurrency(n, "INR");
 }
 
+const EURO_ZONE = new Set([
+  "AT",
+  "BE",
+  "CY",
+  "EE",
+  "FI",
+  "FR",
+  "DE",
+  "GR",
+  "IE",
+  "IT",
+  "LV",
+  "LT",
+  "LU",
+  "MT",
+  "NL",
+  "PT",
+  "SK",
+  "SI",
+  "ES",
+  "HR",
+]);
+
+/** Maps a reverse-geocoded ISO 3166-1 country code to one of the
+ *  currencies this app actually offers. Anything we don't recognize falls
+ *  back to INR (the business's home currency) rather than guessing. */
+export function currencyForCountry(countryCode?: string | null): string {
+  const cc = (countryCode ?? "").toUpperCase();
+  switch (cc) {
+    case "US":
+      return "USD";
+    case "SA":
+      return "SAR";
+    case "AE":
+      return "AED";
+    case "QA":
+      return "QAR";
+    case "KW":
+      return "KWD";
+    case "BH":
+      return "BHD";
+    case "OM":
+      return "OMR";
+    case "GB":
+      return "GBP";
+    default:
+      return EURO_ZONE.has(cc) ? "EUR" : "INR";
+  }
+}
+
 export function timeAgo(iso: string) {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
   if (diff < 60) return "just now";

@@ -14,6 +14,28 @@ export interface FixResult {
 
 export type PermissionState = "granted" | "prompt" | "denied" | "unknown";
 
+/** Best-effort reverse geocode via Nominatim — lives here (not in
+ *  location-picker.tsx) so callers that just want a country code, like the
+ *  driver onboarding form, don't have to pull in Leaflet/react-leaflet to
+ *  get it. Never throws; an empty object means the lookup failed. */
+export async function reverseGeocodeLookup(
+  lat: number,
+  lng: number,
+): Promise<{ address?: string; countryCode?: string }> {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lng}`,
+    );
+    const d = (await r.json()) as {
+      display_name?: string;
+      address?: { country_code?: string };
+    };
+    return { address: d?.display_name, countryCode: d?.address?.country_code };
+  } catch {
+    return {};
+  }
+}
+
 /** Explicit state machine — never an endless spinner. */
 export type LocationStatus =
   | "loading" // first attempt in flight
@@ -218,8 +240,6 @@ export function useLiveLocation(watch = true): LocationState {
   useEffect(() => {
     let cancelled = false;
     let clearWatch: (() => void) | undefined;
-    let poll: ReturnType<typeof setInterval> | undefined;
-    let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
     const accept = (fix: FixResult, fromCache = false) => {
       if (cancelled) return;
@@ -314,14 +334,14 @@ export function useLiveLocation(watch = true): LocationState {
     }
 
     // 4. Background refresh so transient failures self-heal.
-    poll = setInterval(() => {
+    const poll = setInterval(() => {
       void getPositionOnce({ highAccuracy: true, timeout: 15_000, maximumAge: 10_000 })
         .then((f) => accept(f))
         .catch(() => undefined);
     }, 15_000);
 
     // 5. Hard stop on the spinner.
-    searchTimer = setTimeout(() => {
+    const searchTimer = setTimeout(() => {
       if (!gotFixRef.current && !cancelled) {
         setStatus((p) => (p === "loading" ? "searching" : p));
       }

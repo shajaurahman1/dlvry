@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { CURRENCIES } from "@/lib/orders";
+import { CURRENCIES, currencyForCountry } from "@/lib/orders";
 import type { PickedLocation } from "@/components/location-picker";
 
 const LocationPicker = lazy(() =>
@@ -281,6 +281,11 @@ function ShopSettings() {
               setCoords(loc);
               if (loc.address && !form.address.trim())
                 setForm((prev) => ({ ...prev, address: loc.address! }));
+              // This only fires from an actual pick/search/GPS/drag, never
+              // from the initial saved value, so it's safe to apply
+              // directly — the shop just told us where they are.
+              if (loc.countryCode)
+                setForm((prev) => ({ ...prev, currency: currencyForCountry(loc.countryCode) }));
             }}
           />
         </Suspense>

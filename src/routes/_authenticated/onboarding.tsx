@@ -20,6 +20,8 @@ import {
 import { Store, Bike } from "lucide-react";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/utils";
+import { currencyForCountry } from "@/lib/orders";
+import { getPositionOnce, reverseGeocodeLookup } from "@/lib/geo";
 import type { PickedLocation } from "@/components/location-picker";
 
 const LocationPicker = lazy(() =>
@@ -30,7 +32,8 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
   validateSearch: (s: Record<string, unknown>): { role?: "shopkeeper" | "driver" } => ({
     role: s.role === "shopkeeper" || s.role === "driver" ? s.role : undefined,
   }),
-  head: () => pageHead("Set up your profile", "Set up your shop or delivery partner profile on MOVEBY."),
+  head: () =>
+    pageHead("Set up your profile", "Set up your shop or delivery partner profile on MOVEBY."),
   component: Onboarding,
 });
 
@@ -123,6 +126,7 @@ function ShopkeeperForm({
     phone: "",
     whatsapp: "",
     gst_number: "",
+    currency: "INR",
   });
   const [coords, setCoords] = useState<PickedLocation | null>(null);
 
@@ -149,6 +153,7 @@ function ShopkeeperForm({
           longitude: coords.lng,
           shop_phone: f.phone || undefined,
           gst_number: f.gst_number || undefined,
+          currency: f.currency,
         },
       });
       // Don't trust the calls above resolving as proof the write landed -
@@ -212,7 +217,9 @@ function ShopkeeperForm({
             label="WhatsApp"
             labelAction={
               f.phone.trim() && (
-                <SameAsPhoneButton onClick={() => setF((prev) => ({ ...prev, whatsapp: prev.phone }))} />
+                <SameAsPhoneButton
+                  onClick={() => setF((prev) => ({ ...prev, whatsapp: prev.phone }))}
+                />
               )
             }
           >
@@ -249,6 +256,8 @@ function ShopkeeperForm({
             onChange={(loc) => {
               setCoords(loc);
               if (loc.address && !f.address) setF((prev) => ({ ...prev, address: loc.address! }));
+              if (loc.countryCode)
+                setF((prev) => ({ ...prev, currency: currencyForCountry(loc.countryCode) }));
             }}
           />
         </Suspense>
@@ -284,7 +293,32 @@ function DriverForm({
     vehicle_type: "bike" as "walking" | "cycle" | "bike" | "car",
     vehicle_number: "",
     available_cash: "1000",
+    currency: "INR",
   });
+
+  // Drivers don't pick a location in this form (that comes from live GPS
+  // once they're on the dashboard), so there's no map interaction to hang
+  // currency detection off of — just take a quiet one-shot fix instead.
+  // Best-effort: if it fails or times out, INR stays as the default and
+  // the driver can still change it later in settings.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const fix = await getPositionOnce({ highAccuracy: false, timeout: 6000 });
+        const geo = await reverseGeocodeLookup(fix.lat, fix.lng);
+        if (!cancelled && geo.countryCode) {
+          setF((prev) => ({ ...prev, currency: currencyForCountry(geo.countryCode) }));
+        }
+      } catch {
+        /* ignore — INR default stands */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -300,6 +334,7 @@ function DriverForm({
           vehicle_type: f.vehicle_type,
           vehicle_number: f.vehicle_number || undefined,
           available_cash: Number(f.available_cash) || 0,
+          currency: f.currency,
         },
       });
       const check = await getMe();
@@ -331,7 +366,9 @@ function DriverForm({
             label="WhatsApp"
             labelAction={
               f.phone.trim() && (
-                <SameAsPhoneButton onClick={() => setF((prev) => ({ ...prev, whatsapp: prev.phone }))} />
+                <SameAsPhoneButton
+                  onClick={() => setF((prev) => ({ ...prev, whatsapp: prev.phone }))}
+                />
               )
             }
           >
