@@ -5,7 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MapPin, Loader2, Locate, Search } from "lucide-react";
-import { getPositionOnce, readGeoPermission, type PermissionState } from "@/lib/geo";
+import {
+  getPositionOnce,
+  readGeoPermission,
+  reverseGeocodeLookup,
+  type PermissionState,
+} from "@/lib/geo";
 import { toast } from "sonner";
 
 // Default Leaflet marker icons (Vite doesn't resolve the CSS-referenced images)
@@ -25,6 +30,10 @@ export interface PickedLocation {
   lng: number;
   address?: string;
   accuracy?: number;
+  /** ISO 3166-1 alpha-2, from reverse geocoding — lets callers auto-pick a
+   *  currency for wherever this location actually is instead of a hardcoded
+   *  default, without needing a second network round trip of their own. */
+  countryCode?: string;
 }
 
 interface Props {
@@ -48,17 +57,27 @@ interface Suggestion {
   lat: number;
   lng: number;
   label: string;
+  countryCode?: string;
 }
 
 async function searchPlaces(q: string): Promise<Suggestion[]> {
+  // No countrycodes restriction — this app is no longer India-only on the
+  // Play Store, and a shop/driver outside India searching for their own
+  // address was getting zero results no matter what they typed.
   const r = await fetch(
-    `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=in&q=${encodeURIComponent(q)}`,
+    `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&q=${encodeURIComponent(q)}`,
   );
-  const d = (await r.json()) as Array<{ lat: string; lon: string; display_name: string }>;
+  const d = (await r.json()) as Array<{
+    lat: string;
+    lon: string;
+    display_name: string;
+    address?: { country_code?: string };
+  }>;
   return (d ?? []).map((x) => ({
     lat: parseFloat(x.lat),
     lng: parseFloat(x.lon),
     label: x.display_name,
+    countryCode: x.address?.country_code,
   }));
 }
 
@@ -85,7 +104,8 @@ export function LocationPicker({
     setBusy(true);
     try {
       const fix = await getPositionOnce();
-      onChange({ lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy });
+      const geo = await reverseGeocodeLookup(fix.lat, fix.lng);
+      onChange({ lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy, ...geo });
       setInfo((i) => ({ ...i, permission: "granted", lastError: undefined }));
       toast.success("Location captured");
     } catch (err) {
@@ -198,6 +218,7 @@ function MapPickerBody({
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<Suggestion[]>([]);
   const [address, setAddress] = useState<string | undefined>(initial?.address);
+  const [countryCode, setCountryCode] = useState<string | undefined>(initial?.countryCode);
 
   // Debounced type-ahead search
   useEffect(() => {
@@ -220,20 +241,15 @@ function MapPickerBody({
   }, [query]);
 
   const reverseGeocode = async (lat: number, lng: number) => {
-    try {
-      const r = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-      );
-      const d = await r.json();
-      if (d?.display_name) setAddress(d.display_name);
-    } catch {
-      /* ignore */
-    }
+    const geo = await reverseGeocodeLookup(lat, lng);
+    if (geo.address) setAddress(geo.address);
+    if (geo.countryCode) setCountryCode(geo.countryCode);
   };
 
   const pick = (s: Suggestion) => {
     setPin({ lat: s.lat, lng: s.lng });
     setAddress(s.label);
+    setCountryCode(s.countryCode);
     setResults([]);
     setQuery(s.label);
   };
@@ -322,7 +338,7 @@ function MapPickerBody({
 
       <Button
         type="button"
-        onClick={() => onConfirm({ ...pin, address })}
+        onClick={() => onConfirm({ ...pin, address, countryCode })}
         className="h-11 w-full rounded-full font-semibold"
       >
         Confirm this location
