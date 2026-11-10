@@ -187,7 +187,7 @@ export const listDriverOrders = createServerFn({ method: "GET" })
     });
     const clearedAt = (driverRow.rows[0]?.history_cleared_at as string | null) ?? null;
     const res = await db.execute({
-      sql: `SELECT o.*, s.shop_name, s.shop_phone, s.address AS shop_address
+      sql: `SELECT o.*, s.shop_name, s.shop_phone, s.address AS shop_address, s.currency AS shop_currency
             FROM orders o JOIN shopkeepers s ON s.id = o.shop_id
             WHERE o.driver_id = ?
               AND (? IS NULL OR o.created_at > ? OR o.status NOT IN (${TERMINAL_ORDER_STATUSES.map(() => "?").join(",")}))
@@ -285,7 +285,7 @@ export const getNearbyOrders = createServerFn({ method: "GET" })
 
     const nowIso = new Date().toISOString();
     const candidates = await db.execute({
-      sql: `SELECT o.*, s.shop_name, s.shop_phone, s.address AS shop_address
+      sql: `SELECT o.*, s.shop_name, s.shop_phone, s.address AS shop_address, s.currency AS shop_currency
             FROM orders o JOIN shopkeepers s ON s.id = o.shop_id
             WHERE o.status = 'searching' AND o.driver_id IS NULL
               AND (o.expires_at IS NULL OR o.expires_at > ?)

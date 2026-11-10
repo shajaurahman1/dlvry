@@ -52,9 +52,32 @@ export const DRIVER_FLOW = [
   { status: "delivered", label: "Complete delivery" },
 ] as const;
 
-export function fmtINR(n: number | string | null | undefined) {
+/** Shops and drivers are physically local to whoever they transact with —
+ *  the delivery charge a shop in Riyadh enters is a SAR amount the moment
+ *  they type it, same as a shop in Kasargod typing a ₹ amount. There's no
+ *  exchange rate here: each shop/driver just picks which symbol their own
+ *  numbers mean, and every amount tied to them displays with that symbol. */
+export const CURRENCIES: Record<string, { symbol: string; locale: string; label: string }> = {
+  INR: { symbol: "₹", locale: "en-IN", label: "Indian Rupee (₹)" },
+  USD: { symbol: "$", locale: "en-US", label: "US Dollar ($)" },
+  SAR: { symbol: "SR", locale: "en-US", label: "Saudi Riyal (SR)" },
+  AED: { symbol: "AED", locale: "en-US", label: "UAE Dirham (AED)" },
+  QAR: { symbol: "QR", locale: "en-US", label: "Qatari Riyal (QR)" },
+  KWD: { symbol: "KD", locale: "en-US", label: "Kuwaiti Dinar (KD)" },
+  BHD: { symbol: "BD", locale: "en-US", label: "Bahraini Dinar (BD)" },
+  OMR: { symbol: "OMR", locale: "en-US", label: "Omani Rial (OMR)" },
+  GBP: { symbol: "£", locale: "en-GB", label: "British Pound (£)" },
+  EUR: { symbol: "€", locale: "en-IE", label: "Euro (€)" },
+};
+
+export function fmtCurrency(n: number | string | null | undefined, currency?: string | null) {
+  const cfg = CURRENCIES[currency ?? "INR"] ?? CURRENCIES.INR;
   const v = typeof n === "string" ? Number(n) : (n ?? 0);
-  return `₹${(v as number).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  return `${cfg.symbol}${(v as number).toLocaleString(cfg.locale, { maximumFractionDigits: 0 })}`;
+}
+
+export function fmtINR(n: number | string | null | undefined) {
+  return fmtCurrency(n, "INR");
 }
 
 export function timeAgo(iso: string) {

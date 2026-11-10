@@ -16,6 +16,7 @@ const ShopInput = z.object({
   gov_id_url: z.string().url().optional(),
   shop_photo_url: z.string().url().optional(),
   trade_license_url: z.string().url().optional(),
+  currency: z.string().trim().min(1).optional(),
 });
 
 export const getMyShop = createServerFn({ method: "GET" })
@@ -51,8 +52,8 @@ export const upsertMyShop = createServerFn({ method: "POST" })
         {
           sql: `INSERT INTO shopkeepers
                   (id, shop_name, shop_category, address, latitude, longitude, owner_name, shop_phone,
-                   gst_number, pan_number, licence_number, gov_id_url, shop_photo_url, trade_license_url)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   gst_number, pan_number, licence_number, gov_id_url, shop_photo_url, trade_license_url, currency)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                   shop_name = excluded.shop_name, shop_category = excluded.shop_category,
                   address = excluded.address, latitude = excluded.latitude, longitude = excluded.longitude,
@@ -62,12 +63,25 @@ export const upsertMyShop = createServerFn({ method: "POST" })
                   gov_id_url = COALESCE(excluded.gov_id_url, shopkeepers.gov_id_url),
                   shop_photo_url = COALESCE(excluded.shop_photo_url, shopkeepers.shop_photo_url),
                   trade_license_url = COALESCE(excluded.trade_license_url, shopkeepers.trade_license_url),
+                  currency = COALESCE(excluded.currency, shopkeepers.currency),
                   updated_at = ?`,
           args: [
-            context.userId, data.shop_name, data.shop_category, data.address, data.latitude, data.longitude,
-            data.owner_name ?? null, data.shop_phone ?? null, data.gst_number ?? null, data.pan_number ?? null,
-            data.licence_number ?? null, data.gov_id_url ?? null, data.shop_photo_url ?? null,
-            data.trade_license_url ?? null, nowIso(),
+            context.userId,
+            data.shop_name,
+            data.shop_category,
+            data.address,
+            data.latitude,
+            data.longitude,
+            data.owner_name ?? null,
+            data.shop_phone ?? null,
+            data.gst_number ?? null,
+            data.pan_number ?? null,
+            data.licence_number ?? null,
+            data.gov_id_url ?? null,
+            data.shop_photo_url ?? null,
+            data.trade_license_url ?? null,
+            data.currency ?? "INR",
+            nowIso(),
           ],
         },
         {
@@ -90,7 +104,8 @@ export const listShopkeepers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .validator((input: { status?: string } | undefined) => input ?? {})
   .handler(async ({ context, data }) => {
-    const { requireAdmin, toPlainRows } = await import("@/integrations/turso/profile-helpers.server");
+    const { requireAdmin, toPlainRows } =
+      await import("@/integrations/turso/profile-helpers.server");
     await requireAdmin(context.userId);
     const { db } = await import("@/integrations/turso/client.server");
     const res = data.status
@@ -124,7 +139,13 @@ export const setShopkeeperStatus = createServerFn({ method: "POST" })
     });
     await db.execute({
       sql: "INSERT INTO admin_logs (id, admin_id, action, target_type, target_id, metadata) VALUES (?, ?, ?, 'shopkeeper', ?, ?)",
-      args: [crypto.randomUUID(), context.userId, "update_shopkeeper_status", data.id, JSON.stringify(data)],
+      args: [
+        crypto.randomUUID(),
+        context.userId,
+        "update_shopkeeper_status",
+        data.id,
+        JSON.stringify(data),
+      ],
     });
     return { ok: true };
   });

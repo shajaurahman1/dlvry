@@ -56,7 +56,8 @@ import {
 import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_TONE,
-  fmtINR,
+  fmtCurrency,
+  CURRENCIES,
   timeAgo,
   minutesLeft,
   SEARCHING_STATUSES,
@@ -102,6 +103,7 @@ type Shop = NonNullable<Awaited<ReturnType<typeof getMyShop>>> & {
   latitude: number;
   longitude: number;
   all_time_order_count?: number;
+  currency?: string | null;
 };
 type Filter = "all" | "today" | "week" | "month" | "pending" | "active" | "completed" | "cancelled";
 
@@ -376,7 +378,7 @@ function ShopDashboard() {
       ) : (
         <div className="space-y-3">
           {filtered.map((o) => (
-            <ShopOrderCard key={o.id} order={o} onChange={load} />
+            <ShopOrderCard key={o.id} order={o} onChange={load} shopCurrency={shop.currency} />
           ))}
         </div>
       )}
@@ -406,7 +408,15 @@ function Stat({
   );
 }
 
-function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void }) {
+function ShopOrderCard({
+  order,
+  onChange,
+  shopCurrency,
+}: {
+  order: Order;
+  onChange: () => void;
+  shopCurrency?: string | null;
+}) {
   const [busy, setBusy] = useState(false);
 
   const confirm = async () => {
@@ -512,9 +522,10 @@ function ShopOrderCard({ order, onChange }: { order: Order; onChange: () => void
           >
             {ORDER_STATUS_LABEL[order.status]}
           </span>
-          <p className="mt-2 text-lg font-black">{fmtINR(order.total_amount)}</p>
+          <p className="mt-2 text-lg font-black">{fmtCurrency(order.total_amount, shopCurrency)}</p>
           <p className="text-[11px] text-muted-foreground">
-            Order {fmtINR(order.order_amount)} + Delivery {fmtINR(order.delivery_charge)}
+            Order {fmtCurrency(order.order_amount, shopCurrency)} + Delivery{" "}
+            {fmtCurrency(order.delivery_charge, shopCurrency)}
           </p>
         </div>
       </div>
@@ -586,13 +597,14 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
   const [customerLoc, setCustomerLoc] = useState<PickedLocation | null>(null);
   const [busy, setBusy] = useState(false);
   const total = (Number(f.order_amount) || 0) + (Number(f.delivery_charge) || 0);
+  const symbol = CURRENCIES[shop.currency ?? "INR"]?.symbol ?? "₹";
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!f.customer_name || !f.customer_phone || !f.customer_address)
       return toast.error("Fill all required fields");
     if ((Number(f.delivery_charge) || 0) <= 10)
-      return toast.error("Delivery charge must be greater than ₹10");
+      return toast.error(`Delivery charge must be greater than ${symbol}10`);
     setBusy(true);
     try {
       await createOrderFn({
@@ -681,7 +693,7 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
             required
           />
         </FormField>
-        <FormField label="Delivery charge (₹, above 10)">
+        <FormField label={`Delivery charge (${symbol}, above 10)`}>
           <Input
             type="number"
             min="11"
@@ -713,7 +725,9 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
       <div className="rounded-2xl bg-primary/5 p-4">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Total customer pays</span>
-          <span className="text-xl font-black text-primary">{fmtINR(total)}</span>
+          <span className="text-xl font-black text-primary">
+            {fmtCurrency(total, shop.currency)}
+          </span>
         </div>
       </div>
       <FormField label="Notes (optional)">
