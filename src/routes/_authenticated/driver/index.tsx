@@ -519,7 +519,14 @@ function DriverDashboard() {
           <ActiveOrder
             order={active}
             onChange={loadOrders}
-            onDelivered={() => setJustDelivered(true)}
+            onDelivered={() => {
+              setJustDelivered(true);
+              // lifetime_earnings lives on the driver row, not the order —
+              // loadOrders() alone never picks up the bump advanceOrder just
+              // made server-side, so the stat looked frozen until the next
+              // full page load.
+              void loadDriver();
+            }}
           />
         ) : (
           <>
