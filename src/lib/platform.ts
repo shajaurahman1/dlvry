@@ -24,20 +24,21 @@ export function platformName(): "android" | "ios" | "web" {
 }
 
 /**
- * Opens the OS settings screen for this app when running on Android.
- * Uses the Capacitor bridge's generic plugin call so no extra plugin is needed;
- * falls back to `false` when unavailable so callers can show guidance instead.
+ * Opens this app's OS settings screen (Android: the "App info" page) so the
+ * user can flip a permission they previously denied. @capacitor/app has no
+ * such method — it was never capable of this despite the old code calling
+ * a nonexistent `App.openUrl`, which silently no-op'd instead of erroring.
+ * Falls back to `false` when unavailable so callers can show guidance instead.
  */
 export async function openAppSettings(): Promise<boolean> {
   if (!isNativeApp()) return false;
   try {
-    const { App } = await import("@capacitor/app");
-    const info = await App.getInfo();
-    const url = `package:${info.id}`;
-    const anyWindow = window as unknown as {
-      Capacitor?: { Plugins?: { App?: { openUrl?: (o: { url: string }) => Promise<unknown> } } };
-    };
-    await anyWindow.Capacitor?.Plugins?.App?.openUrl?.({ url });
+    const { NativeSettings, AndroidSettings, IOSSettings } =
+      await import("capacitor-native-settings");
+    await NativeSettings.open({
+      optionAndroid: AndroidSettings.ApplicationDetails,
+      optionIOS: IOSSettings.App,
+    });
     return true;
   } catch {
     return false;
