@@ -12,6 +12,7 @@ import {
   resendOrder,
   clearShopHistory,
   markOtpSent,
+  expireStaleOrders,
 } from "@/lib/orders.functions";
 import { RoleSwitchButton } from "@/components/role-switch-button";
 import { AppShell } from "@/components/app-shell";
@@ -122,6 +123,11 @@ function ShopDashboard() {
 
   const load = async () => {
     if (!user) return;
+    // Expiring stale "searching" orders used to only happen as a side effect
+    // of a driver's dashboard polling — if no driver happened to be online
+    // at the time, a shop's own expired order just sat there forever with
+    // no driver ever coming. The shop polls too, so it can do this itself.
+    void expireStaleOrders().catch(() => {});
     const [s, o] = await Promise.all([getMyShop(), listShopOrders()]);
     setShop(s as Shop | null);
     setOrders((o ?? []) as unknown as Order[]);
