@@ -136,6 +136,14 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* AppShell's main content area needs its own breathing room above whatever
+   sits at the very bottom of the screen *plus* the device's own nav bar —
+   a flat px value looks fine on a gesture-nav phone (tiny real inset) but
+   crowds the on-screen 3-button nav bar some taller-display phones use. */
+@utility pb-shell {
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+}
+
 .moveby-logo img { transition: transform 350ms ease; }
 a:hover .moveby-logo img, button:hover .moveby-logo img { transform: translateY(-3px) rotate(-2deg) scale(1.04); }
 a:active .moveby-logo img, button:active .moveby-logo img { transform: scale(0.96); }

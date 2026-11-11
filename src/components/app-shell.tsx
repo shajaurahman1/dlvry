@@ -43,7 +43,7 @@ export function AppShell({
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-4xl px-5 pb-24 pt-8">
+      <main className="mx-auto max-w-4xl px-5 pb-shell pt-8">
         {(title || actions) && (
           <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
             <div className="min-w-0">
