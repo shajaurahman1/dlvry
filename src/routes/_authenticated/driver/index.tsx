@@ -608,7 +608,12 @@ function DriverDashboard() {
           </div>
           <div className="space-y-2">
             {history.slice(0, 8).map((o) => (
-              <DriverHistoryItem key={o.id} order={o} />
+              <DriverHistoryItem
+                key={o.id}
+                order={o}
+                driverName={(profile?.full_name as string | undefined) ?? null}
+                driverPhone={(profile?.phone as string | undefined) ?? null}
+              />
             ))}
           </div>
         </div>
@@ -639,7 +644,15 @@ function Stat({
   );
 }
 
-function DriverHistoryItem({ order: o }: { order: Order }) {
+function DriverHistoryItem({
+  order: o,
+  driverName,
+  driverPhone,
+}: {
+  order: Order;
+  driverName: string | null;
+  driverPhone: string | null;
+}) {
   const [showReport, setShowReport] = useState(false);
   return (
     <div className="card-soft flex items-center justify-between p-4">
@@ -669,7 +682,7 @@ function DriverHistoryItem({ order: o }: { order: Order }) {
       </div>
       {showReport && (
         <OrderDetailsReport
-          order={o}
+          order={{ ...o, driver_name: driverName, driver_phone: driverPhone }}
           currency={o.shop_currency}
           onClose={() => setShowReport(false)}
         />
