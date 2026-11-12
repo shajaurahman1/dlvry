@@ -107,6 +107,8 @@ type Shop = NonNullable<Awaited<ReturnType<typeof getMyShop>>> & {
   longitude: number;
   all_time_order_count?: number;
   currency?: string | null;
+  shop_phone?: string | null;
+  address?: string | null;
 };
 type Filter = "all" | "today" | "week" | "month" | "pending" | "active" | "completed" | "cancelled";
 
@@ -382,7 +384,15 @@ function ShopDashboard() {
       ) : (
         <div className="space-y-3">
           {filtered.map((o) => (
-            <ShopOrderCard key={o.id} order={o} onChange={load} shopCurrency={shop.currency} />
+            <ShopOrderCard
+              key={o.id}
+              order={o}
+              onChange={load}
+              shopCurrency={shop.currency}
+              shopName={shop.shop_name}
+              shopPhone={shop.shop_phone ?? null}
+              shopAddress={shop.address ?? null}
+            />
           ))}
         </div>
       )}
@@ -416,10 +426,16 @@ function ShopOrderCard({
   order,
   onChange,
   shopCurrency,
+  shopName,
+  shopPhone,
+  shopAddress,
 }: {
   order: Order;
   onChange: () => void;
   shopCurrency?: string | null;
+  shopName?: string | null;
+  shopPhone?: string | null;
+  shopAddress?: string | null;
 }) {
   const [busy, setBusy] = useState(false);
   const [showReport, setShowReport] = useState(false);
@@ -594,7 +610,12 @@ function ShopOrderCard({
       </button>
       {showReport && (
         <OrderDetailsReport
-          order={order}
+          order={{
+            ...order,
+            shop_name: (order.shop_name as string | null | undefined) ?? shopName,
+            shop_phone: (order.shop_phone as string | null | undefined) ?? shopPhone,
+            shop_address: (order.shop_address as string | null | undefined) ?? shopAddress,
+          }}
           currency={shopCurrency}
           onClose={() => setShowReport(false)}
         />
