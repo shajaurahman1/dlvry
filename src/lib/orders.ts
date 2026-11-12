@@ -138,6 +138,16 @@ export function timeAgo(iso: string) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+/** Absolute, full date + time — for a record someone might need to point
+ *  to later, relative wording ("2h ago") isn't good enough. */
+export function fmtDateTime(iso: string | null | undefined) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
 export function minutesLeft(iso: string | null | undefined) {
   if (!iso) return null;
   const ms = new Date(iso).getTime() - Date.now();

@@ -52,7 +52,9 @@ import {
   RefreshCw,
   Trash2,
   MessageCircle,
+  FileText,
 } from "lucide-react";
+import { OrderDetailsReport } from "@/components/order-details-report";
 import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_TONE,
@@ -85,6 +87,7 @@ type Order = Awaited<ReturnType<typeof listShopOrders>>[number] & {
   order_description: string;
   customer_name: string;
   customer_phone: string;
+  customer_address: string;
   payment_method: string;
   total_amount: number;
   order_amount: number;
@@ -324,7 +327,8 @@ function ShopDashboard() {
                 <AlertDialogTitle>Clear order history?</AlertDialogTitle>
                 <AlertDialogDescription>
                   This only clears this list so it's easier to look through — your all-time order
-                  count above is kept.
+                  count above is kept, and the last 7 days stay visible for safety and
+                  record-keeping. No order is ever actually deleted.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -418,6 +422,7 @@ function ShopOrderCard({
   shopCurrency?: string | null;
 }) {
   const [busy, setBusy] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
   const confirm = async () => {
     setBusy(true);
@@ -578,6 +583,21 @@ function ShopOrderCard({
         >
           {nextAction.label}
         </Button>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setShowReport(true)}
+        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+      >
+        <FileText className="h-3.5 w-3.5" /> View full details
+      </button>
+      {showReport && (
+        <OrderDetailsReport
+          order={order}
+          currency={shopCurrency}
+          onClose={() => setShowReport(false)}
+        />
       )}
     </div>
   );
