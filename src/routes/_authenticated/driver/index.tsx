@@ -48,7 +48,9 @@ import {
   XCircle,
   ShieldCheck,
   Trash2,
+  FileText,
 } from "lucide-react";
+import { OrderDetailsReport } from "@/components/order-details-report";
 import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_TONE,
@@ -581,7 +583,8 @@ function DriverDashboard() {
                   <AlertDialogTitle>Clear delivery history?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This only clears this list so it's easier to look through — your lifetime
-                    earnings above are kept.
+                    earnings above are kept, and the last 7 days stay visible for safety and
+                    record-keeping. No order is ever actually deleted.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -605,27 +608,7 @@ function DriverDashboard() {
           </div>
           <div className="space-y-2">
             {history.slice(0, 8).map((o) => (
-              <div key={o.id} className="card-soft flex items-center justify-between p-4">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">
-                    {o.shop_name || o.order_description}
-                  </p>
-                  {o.order_description && o.shop_name && (
-                    <p className="truncate text-xs text-muted-foreground">{o.order_description}</p>
-                  )}
-                  <p className="text-[11px] text-muted-foreground">{timeAgo(o.created_at)}</p>
-                </div>
-                <div className="text-right">
-                  <span
-                    className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${ORDER_STATUS_TONE[o.status]}`}
-                  >
-                    {ORDER_STATUS_LABEL[o.status]}
-                  </span>
-                  <p className="mt-1 text-sm font-bold text-primary">
-                    +{fmtCurrency(o.delivery_charge, o.shop_currency)}
-                  </p>
-                </div>
-              </div>
+              <DriverHistoryItem key={o.id} order={o} />
             ))}
           </div>
         </div>
@@ -652,6 +635,45 @@ function Stat({
         {label}
       </div>
       <p className="mt-2 text-xl font-black">{value}</p>
+    </div>
+  );
+}
+
+function DriverHistoryItem({ order: o }: { order: Order }) {
+  const [showReport, setShowReport] = useState(false);
+  return (
+    <div className="card-soft flex items-center justify-between p-4">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold">{o.shop_name || o.order_description}</p>
+        {o.order_description && o.shop_name && (
+          <p className="truncate text-xs text-muted-foreground">{o.order_description}</p>
+        )}
+        <p className="text-[11px] text-muted-foreground">{timeAgo(o.created_at)}</p>
+        <button
+          type="button"
+          onClick={() => setShowReport(true)}
+          className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+        >
+          <FileText className="h-3 w-3" /> View full details
+        </button>
+      </div>
+      <div className="text-right">
+        <span
+          className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${ORDER_STATUS_TONE[o.status]}`}
+        >
+          {ORDER_STATUS_LABEL[o.status]}
+        </span>
+        <p className="mt-1 text-sm font-bold text-primary">
+          +{fmtCurrency(o.delivery_charge, o.shop_currency)}
+        </p>
+      </div>
+      {showReport && (
+        <OrderDetailsReport
+          order={o}
+          currency={o.shop_currency}
+          onClose={() => setShowReport(false)}
+        />
+      )}
     </div>
   );
 }

@@ -148,7 +148,8 @@ export const listShopOrders = createServerFn({ method: "GET" })
     });
     const clearedAt = (shopRow.rows[0]?.history_cleared_at as string | null) ?? null;
     const res = await db.execute({
-      sql: `SELECT o.*, p.full_name AS driver_name, p.phone AS driver_phone
+      sql: `SELECT o.*, (o.order_amount + o.delivery_charge) AS total_amount,
+                   p.full_name AS driver_name, p.phone AS driver_phone
             FROM orders o
             LEFT JOIN profiles p ON p.id = o.driver_id
             WHERE o.shop_id = ?
@@ -168,8 +169,10 @@ export const clearShopHistory = createServerFn({ method: "POST" })
     await requireRole(context.userId, "shopkeeper");
     const { db } = await import("@/integrations/turso/client.server");
     await db.execute({
+      // Keeps the last 7 days visible even after "clearing" — the underlying
+      // order rows are never deleted by this either way, just hidden.
       sql: "UPDATE shopkeepers SET history_cleared_at = ? WHERE id = ?",
-      args: [new Date().toISOString(), context.userId],
+      args: [new Date(Date.now() - 7 * 86400_000).toISOString(), context.userId],
     });
     return { ok: true };
   });
@@ -187,7 +190,8 @@ export const listDriverOrders = createServerFn({ method: "GET" })
     });
     const clearedAt = (driverRow.rows[0]?.history_cleared_at as string | null) ?? null;
     const res = await db.execute({
-      sql: `SELECT o.*, s.shop_name, s.shop_phone, s.address AS shop_address, s.currency AS shop_currency
+      sql: `SELECT o.*, (o.order_amount + o.delivery_charge) AS total_amount,
+                   s.shop_name, s.shop_phone, s.address AS shop_address, s.currency AS shop_currency
             FROM orders o JOIN shopkeepers s ON s.id = o.shop_id
             WHERE o.driver_id = ?
               AND (? IS NULL OR o.created_at > ? OR o.status NOT IN (${TERMINAL_ORDER_STATUSES.map(() => "?").join(",")}))
@@ -206,8 +210,10 @@ export const clearDriverHistory = createServerFn({ method: "POST" })
     await requireRole(context.userId, "driver");
     const { db } = await import("@/integrations/turso/client.server");
     await db.execute({
+      // Keeps the last 7 days visible even after "clearing" — the underlying
+      // order rows are never deleted by this either way, just hidden.
       sql: "UPDATE drivers SET history_cleared_at = ? WHERE id = ?",
-      args: [new Date().toISOString(), context.userId],
+      args: [new Date(Date.now() - 7 * 86400_000).toISOString(), context.userId],
     });
     return { ok: true };
   });
@@ -253,7 +259,9 @@ export const listAdminOrders = createServerFn({ method: "GET" })
       await import("@/integrations/turso/profile-helpers.server");
     await requireAdmin(context.userId);
     const { db } = await import("@/integrations/turso/client.server");
-    const res = await db.execute("SELECT * FROM orders ORDER BY created_at DESC LIMIT 50");
+    const res = await db.execute(
+      "SELECT *, (order_amount + delivery_charge) AS total_amount FROM orders ORDER BY created_at DESC LIMIT 50",
+    );
     return toPlainRows(res.rows);
   });
 
@@ -285,7 +293,8 @@ export const getNearbyOrders = createServerFn({ method: "GET" })
 
     const nowIso = new Date().toISOString();
     const candidates = await db.execute({
-      sql: `SELECT o.*, s.shop_name, s.shop_phone, s.address AS shop_address, s.currency AS shop_currency
+      sql: `SELECT o.*, (o.order_amount + o.delivery_charge) AS total_amount,
+                   s.shop_name, s.shop_phone, s.address AS shop_address, s.currency AS shop_currency
             FROM orders o JOIN shopkeepers s ON s.id = o.shop_id
             WHERE o.status = 'searching' AND o.driver_id IS NULL
               AND (o.expires_at IS NULL OR o.expires_at > ?)
