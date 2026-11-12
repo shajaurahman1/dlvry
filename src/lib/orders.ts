@@ -148,6 +148,20 @@ export function fmtDateTime(iso: string | null | undefined) {
   });
 }
 
+/** Date only, no time — for showing an order's date once instead of
+ *  repeating it on every timeline row. */
+export function fmtDate(iso: string | null | undefined) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
+}
+
+/** Time only, no date — pairs with fmtDate so a timeline doesn't repeat
+ *  the same date on every step. */
+export function fmtTime(iso: string | null | undefined) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleTimeString(undefined, { timeStyle: "short" });
+}
+
 export function minutesLeft(iso: string | null | undefined) {
   if (!iso) return null;
   const ms = new Date(iso).getTime() - Date.now();
