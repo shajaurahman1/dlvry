@@ -160,6 +160,44 @@ export const listShopOrders = createServerFn({ method: "GET" })
     return toPlainRows(res.rows);
   });
 
+/** Just a count, nothing else — a shop never sees who or where, only how
+ *  many drivers are online, free, and close enough right now. Same
+ *  eligibility and freshness rules as the alert sent out on a new order
+ *  (createOrder above), so the number actually reflects who'd get matched. */
+export const getNearbyOnlineDriverCount = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { requireRole } = await import("@/integrations/turso/profile-helpers.server");
+    await requireRole(context.userId, "shopkeeper");
+    const { db } = await import("@/integrations/turso/client.server");
+    const shopRes = await db.execute({
+      sql: "SELECT latitude, longitude FROM shopkeepers WHERE id = ?",
+      args: [context.userId],
+    });
+    const shop = shopRes.rows[0];
+    if (shop?.latitude == null || shop?.longitude == null) return { count: 0 };
+
+    const staleCutoff = new Date(Date.now() - 10 * 60_000).toISOString();
+    const driversRes = await db.execute({
+      sql: `SELECT current_lat, current_lng FROM drivers
+            WHERE is_online = 1 AND is_busy = 0 AND approval_status = 'approved'
+              AND verification_status IN ('verified', 'active')
+              AND current_lat IS NOT NULL AND current_lng IS NOT NULL
+              AND (location_updated_at IS NULL OR location_updated_at > ?)`,
+      args: [staleCutoff],
+    });
+    const count = driversRes.rows.filter(
+      (row) =>
+        haversineKm(
+          Number(shop.latitude),
+          Number(shop.longitude),
+          Number(row.current_lat),
+          Number(row.current_lng),
+        ) <= 3,
+    ).length;
+    return { count };
+  });
+
 /** Clears the shop's visible order history without touching the persistent
  *  all_time_order_count — "history" is just what's shown, not the tally. */
 export const clearShopHistory = createServerFn({ method: "POST" })

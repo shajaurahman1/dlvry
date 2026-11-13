@@ -44,3 +44,26 @@ export async function openAppSettings(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Opens the OS battery-optimization list (Android only). A driver who's
+ * toggled online still gets killed in the background by some phones'
+ * (Xiaomi/Vivo/Oppo in particular) own battery managers, which silently
+ * drops their live location and can delay or block the push notification
+ * for a new order — this is the one settings screen that actually fixes
+ * that, and there's no in-app code fix for OS-level process killing.
+ */
+export async function openBatteryOptimizationSettings(): Promise<boolean> {
+  if (!isNativeApp() || platformName() !== "android") return false;
+  try {
+    const { NativeSettings, AndroidSettings, IOSSettings } =
+      await import("capacitor-native-settings");
+    await NativeSettings.open({
+      optionAndroid: AndroidSettings.BatteryOptimization,
+      optionIOS: IOSSettings.App,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}

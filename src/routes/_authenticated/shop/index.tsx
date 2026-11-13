@@ -13,6 +13,7 @@ import {
   clearShopHistory,
   markOtpSent,
   expireStaleOrders,
+  getNearbyOnlineDriverCount,
 } from "@/lib/orders.functions";
 import { RoleSwitchButton } from "@/components/role-switch-button";
 import { AppShell } from "@/components/app-shell";
@@ -120,6 +121,7 @@ function ShopDashboard() {
   const [open, setOpen] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
+  const [nearbyDrivers, setNearbyDrivers] = useState<number | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -139,6 +141,9 @@ function ShopDashboard() {
     setShop(s as Shop | null);
     setOrders((o ?? []) as unknown as Order[]);
     setDataLoading(false);
+    void getNearbyOnlineDriverCount()
+      .then((r) => setNearbyDrivers(r.count))
+      .catch(() => {});
   };
 
   useEffect(() => {
@@ -254,15 +259,26 @@ function ShopDashboard() {
           <p className="truncate text-lg font-bold">{shop.shop_name}</p>
           <p className="text-xs capitalize text-muted-foreground">{shop.shop_category}</p>
         </div>
-        <span
-          className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
-            shop.approval_status === "blocked"
-              ? "bg-destructive/10 text-destructive"
-              : "bg-primary/15 text-primary"
-          }`}
-        >
-          {shop.approval_status === "blocked" ? "Blocked" : "Active"}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <span
+            className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+              shop.approval_status === "blocked"
+                ? "bg-destructive/10 text-destructive"
+                : "bg-primary/15 text-primary"
+            }`}
+          >
+            {shop.approval_status === "blocked" ? "Blocked" : "Active"}
+          </span>
+          {nearbyDrivers !== null && (
+            <span
+              title="Delivery partners online within 3km right now"
+              className="flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-semibold text-success"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-success" />
+              {nearbyDrivers}
+            </span>
+          )}
+        </div>
       </div>
 
       {shop.approval_status === "blocked" && (
@@ -328,9 +344,7 @@ function ShopDashboard() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Clear order history?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This only clears this list so it's easier to look through — your all-time order
-                  count above is kept, and the last 7 days stay visible for safety and
-                  record-keeping. No order is ever actually deleted.
+                  Only orders older than 7 days will be cleared from this list.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
