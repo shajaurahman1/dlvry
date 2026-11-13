@@ -371,6 +371,28 @@ export const getNearbyOrders = createServerFn({ method: "GET" })
       .sort((a, b) => a.distance_km - b.distance_km);
   });
 
+/** Just a count, nothing else — mirrors getNearbyOnlineDriverCount but for
+ *  a driver looking the other way: how many approved shops are within
+ *  3km of them right now, so they have a sense of whether it's worth
+ *  staying online here. No shop names or addresses, just the number. */
+export const getNearbyActiveShopCount = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { lat: number; lng: number }) => input)
+  .handler(async ({ context, data }) => {
+    const { requireRole } = await import("@/integrations/turso/profile-helpers.server");
+    await requireRole(context.userId, "driver");
+    const { db } = await import("@/integrations/turso/client.server");
+    const shopsRes = await db.execute({
+      sql: `SELECT latitude, longitude FROM shopkeepers
+            WHERE approval_status = 'approved'
+              AND latitude IS NOT NULL AND longitude IS NOT NULL`,
+    });
+    const count = shopsRes.rows.filter(
+      (row) => haversineKm(data.lat, data.lng, Number(row.latitude), Number(row.longitude)) <= 3,
+    ).length;
+    return { count };
+  });
+
 export const acceptOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: { orderId: string; lat: number; lng: number }) => input)
