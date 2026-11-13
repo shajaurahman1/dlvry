@@ -4,7 +4,11 @@ import { DlvryLogo } from "@/components/brand/logo";
 import { ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/privacy")({
-  head: () => pageHead("Privacy Policy", "How MOVEBY collects, uses and shares data for shops and delivery partners."),
+  head: () =>
+    pageHead(
+      "Privacy Policy",
+      "How MOVEBY collects, uses and shares data for shops and delivery partners.",
+    ),
   component: PrivacyPage,
 });
 
@@ -48,8 +52,8 @@ function PrivacyPage() {
               <li>
                 <strong>Shop or delivery partner profile:</strong> shop name, category, address,
                 vehicle details, and — where required for verification — government ID, selfie,
-                driving licence, vehicle RC, insurance, pollution certificate, trade licence and shop
-                photo.
+                driving licence, vehicle RC, insurance, pollution certificate, trade licence and
+                shop photo.
               </li>
               <li>
                 <strong>Location:</strong> delivery partners' live GPS location is collected only
@@ -81,21 +85,40 @@ function PrivacyPage() {
           <Section title="4. Who we share it with">
             <p>We never sell your data. Data is shared only as needed to run the service:</p>
             <ul className="mt-2 list-disc space-y-1 pl-6">
-              <li>With the other party to a delivery (e.g. a driver sees the shop's address and
-                phone number once assigned; a shop sees the assigned driver's name and phone number).</li>
-              <li>With our infrastructure providers, who process data on our behalf: Supabase (sign-in
+              <li>
+                With the other party to a delivery (e.g. a driver sees the shop's address and phone
+                number once assigned; a shop sees the assigned driver's name and phone number).
+              </li>
+              <li>
+                With our infrastructure providers, who process data on our behalf: Supabase (sign-in
                 and authentication), Turso (database hosting), Google Firebase (push notification
                 delivery), and OpenStreetMap/Nominatim (address search and map display — your search
-                text is sent to this service when you look up an address).</li>
+                text is sent to this service when you look up an address).
+              </li>
             </ul>
           </Section>
 
           <Section title="5. Data retention and deletion">
             <p>
               We keep account and order data for as long as your account is active, and as needed to
-              resolve disputes or meet legal obligations. To request deletion of your account and
-              data, see{" "}
-              <Link to="/delete-account" className="underline">how to delete your account</Link>.
+              resolve disputes or meet legal obligations.
+            </p>
+            <p className="mt-3">
+              "Clear history" in the app only removes orders from your own list view — it does not
+              delete the underlying order record. Your order history also always stays visible for
+              at least the last 7 days, even right after clearing it, for safety and record-keeping.
+            </p>
+            <p className="mt-3">
+              A shopkeeper may see a live count of delivery partners who are online and nearby. This
+              is an aggregate number only — it never reveals an individual delivery partner's
+              identity or exact location to the shop.
+            </p>
+            <p className="mt-3">
+              To request deletion of your account and data, see{" "}
+              <Link to="/delete-account" className="underline">
+                how to delete your account
+              </Link>
+              .
             </p>
           </Section>
 
@@ -116,7 +139,10 @@ function PrivacyPage() {
           <Section title="8. Contact">
             <p>
               Questions about this policy or your data can be sent to{" "}
-              <a href="mailto:moveby.in@gmail.com" className="underline">moveby.in@gmail.com</a>.
+              <a href="mailto:moveby.in@gmail.com" className="underline">
+                moveby.in@gmail.com
+              </a>
+              .
             </p>
           </Section>
         </div>
