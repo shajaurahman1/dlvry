@@ -225,7 +225,21 @@ function ShopDashboard() {
   }
 
   return (
-    <AppShell subtitle={shop.shop_name} title="Dispatch">
+    <AppShell
+      subtitle={shop.shop_name}
+      title="Dispatch"
+      actions={
+        nearbyDrivers !== null ? (
+          <span
+            title="Delivery partners online and free near your shop right now"
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-success/15 px-3 py-1.5 text-xs font-semibold text-success"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-success" />
+            {nearbyDrivers} nearby
+          </span>
+        ) : undefined
+      }
+    >
       <NotificationPromptCard />
       {/* Kept out of AppShell's title row (which doesn't wrap) so these
           don't get squeezed next to "Dispatch" and force the page to
@@ -259,26 +273,15 @@ function ShopDashboard() {
           <p className="truncate text-lg font-bold">{shop.shop_name}</p>
           <p className="text-xs capitalize text-muted-foreground">{shop.shop_category}</p>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <span
-            className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
-              shop.approval_status === "blocked"
-                ? "bg-destructive/10 text-destructive"
-                : "bg-primary/15 text-primary"
-            }`}
-          >
-            {shop.approval_status === "blocked" ? "Blocked" : "Active"}
-          </span>
-          {nearbyDrivers !== null && (
-            <span
-              title="Delivery partners online within 3km right now"
-              className="flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-semibold text-success"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-success" />
-              {nearbyDrivers}
-            </span>
-          )}
-        </div>
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+            shop.approval_status === "blocked"
+              ? "bg-destructive/10 text-destructive"
+              : "bg-primary/15 text-primary"
+          }`}
+        >
+          {shop.approval_status === "blocked" ? "Blocked" : "Active"}
+        </span>
       </div>
 
       {shop.approval_status === "blocked" && (
