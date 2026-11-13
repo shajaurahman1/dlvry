@@ -235,7 +235,7 @@ function ShopDashboard() {
             className="flex shrink-0 items-center gap-1.5 rounded-full bg-success/15 px-3 py-1.5 text-xs font-semibold text-success"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-success" />
-            {nearbyDrivers} nearby
+            {nearbyDrivers} drivers active now
           </span>
         ) : undefined
       }

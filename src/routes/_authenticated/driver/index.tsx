@@ -16,6 +16,7 @@ import {
   driverCancelOrder,
   expireStaleOrders,
   clearDriverHistory,
+  getNearbyActiveShopCount,
 } from "@/lib/orders.functions";
 import { RoleSwitchButton } from "@/components/role-switch-button";
 import { AppShell } from "@/components/app-shell";
@@ -139,6 +140,7 @@ function DriverDashboard() {
   const [history, setHistory] = useState<Order[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [justDelivered, setJustDelivered] = useState(false);
+  const [nearbyShops, setNearbyShops] = useState<number | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -192,6 +194,11 @@ function DriverDashboard() {
       c ? getNearbyOrders({ data: { lat: c.lat, lng: c.lng } }) : Promise.resolve([]),
       listDriverOrders(),
     ]);
+    if (c) {
+      void getNearbyActiveShopCount({ data: { lat: c.lat, lng: c.lng } })
+        .then((r) => setNearbyShops(r.count))
+        .catch(() => {});
+    }
     const nearbyMapped = (nearbyRes as unknown as NearbyOrder[]).map((o) => ({
       ...o,
       pickup_address: (o as unknown as { shop_address?: string }).shop_address ?? "",
@@ -346,7 +353,21 @@ function DriverDashboard() {
   }
 
   return (
-    <AppShell subtitle={firstName ? `Welcome back, ${firstName}` : "Live"} title="Delivery">
+    <AppShell
+      subtitle={firstName ? `Welcome back, ${firstName}` : "Live"}
+      title="Delivery"
+      actions={
+        nearbyShops !== null ? (
+          <span
+            title="Shops open for orders within 3km of you right now"
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-success/15 px-3 py-1.5 text-xs font-semibold text-success"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-success" />
+            {nearbyShops} shops available
+          </span>
+        ) : undefined
+      }
+    >
       <DeliverySuccessOverlay show={justDelivered} onDone={() => setJustDelivered(false)} />
       {!active && <NotificationPromptCard />}
       {!active && <BatteryOptimizationPrompt />}
