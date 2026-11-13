@@ -20,6 +20,7 @@ import {
 import { RoleSwitchButton } from "@/components/role-switch-button";
 import { AppShell } from "@/components/app-shell";
 import { NotificationPromptCard } from "@/components/notification-prompt-card";
+import { BatteryOptimizationPrompt } from "@/components/battery-optimization-prompt";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -348,6 +349,7 @@ function DriverDashboard() {
     <AppShell subtitle={firstName ? `Welcome back, ${firstName}` : "Live"} title="Delivery">
       <DeliverySuccessOverlay show={justDelivered} onDone={() => setJustDelivered(false)} />
       {!active && <NotificationPromptCard />}
+      {!active && <BatteryOptimizationPrompt />}
       {driver.approval_status === "blocked" && (
         <div className="mb-6 card-soft border-destructive/40 bg-destructive/10 p-4">
           <p className="text-sm font-medium">Your account has been blocked</p>
@@ -582,9 +584,7 @@ function DriverDashboard() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Clear delivery history?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This only clears this list so it's easier to look through — your lifetime
-                    earnings above are kept, and the last 7 days stay visible for safety and
-                    record-keeping. No order is ever actually deleted.
+                    Only orders older than 7 days will be cleared from this list.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
