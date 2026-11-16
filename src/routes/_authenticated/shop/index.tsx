@@ -650,7 +650,7 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
     order_amount: "",
     delivery_charge: "",
     pickup_notes: "",
-    payment_method: "cash",
+    delivery_mode: "vehicle",
   });
   const [customerLoc, setCustomerLoc] = useState<PickedLocation | null>(null);
   const [busy, setBusy] = useState(false);
@@ -659,8 +659,7 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!f.customer_name || !f.customer_phone || !f.customer_address)
-      return toast.error("Fill all required fields");
+    if (!f.customer_name || !f.customer_phone) return toast.error("Fill all required fields");
     if ((Number(f.delivery_charge) || 0) <= 10)
       return toast.error(`Delivery charge must be greater than ${symbol}10`);
     setBusy(true);
@@ -675,7 +674,8 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
           order_description: f.order_description,
           order_amount: Number(f.order_amount) || 0,
           delivery_charge: Number(f.delivery_charge) || 0,
-          payment_method: f.payment_method as "cash" | "upi",
+          delivery_mode: f.delivery_mode as "walk" | "vehicle",
+          payment_method: "cash",
           pickup_notes: f.pickup_notes,
           pickup_lat: shop.latitude,
           pickup_lng: shop.longitude,
@@ -707,13 +707,35 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
           />
         </FormField>
       </div>
-      <FormField label="Delivery address">
+      <FormField label="Delivery address (optional)">
         <Textarea
           rows={2}
           value={f.customer_address}
           onChange={(e) => setF({ ...f, customer_address: e.target.value })}
-          required
         />
+      </FormField>
+      <FormField label="Delivery distance">
+        <div className="flex gap-2">
+          {(
+            [
+              { value: "walk", label: "Walkable distance" },
+              { value: "vehicle", label: "Vehicle needed" },
+            ] as const
+          ).map((m) => (
+            <button
+              key={m.value}
+              type="button"
+              onClick={() => setF({ ...f, delivery_mode: m.value })}
+              className={`flex-1 rounded-full border px-4 py-2 text-sm font-medium ${
+                f.delivery_mode === m.value
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-card text-muted-foreground"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
       </FormField>
       <Suspense
         fallback={
@@ -762,24 +784,6 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
           />
         </FormField>
       </div>
-      <FormField label="Partner pays the shop by">
-        <div className="flex gap-2">
-          {(["cash", "upi"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setF({ ...f, payment_method: m })}
-              className={`flex-1 rounded-full border px-4 py-2 text-sm font-medium uppercase ${
-                f.payment_method === m
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-card text-muted-foreground"
-              }`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-      </FormField>
       <div className="rounded-2xl bg-primary/5 p-4">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Total customer pays</span>
