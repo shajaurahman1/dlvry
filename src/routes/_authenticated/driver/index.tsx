@@ -102,6 +102,7 @@ type Order = {
   customer_lat: number | null;
   customer_lng: number | null;
   payment_method: string;
+  delivery_mode: string;
   shop_name?: string;
   shop_phone?: string | null;
   shop_address?: string;
@@ -122,6 +123,7 @@ interface NearbyOrder {
   distance_km: number;
   created_at: string;
   payment_method: string;
+  delivery_mode: string;
   expires_at: string | null;
   shop_currency?: string | null;
 }
@@ -753,8 +755,8 @@ function NearbyCard({
               <Navigation className="h-3 w-3" />
               {order.distance_km.toFixed(1)} km
             </span>
-            <span className="rounded-full bg-accent px-2 py-0.5 uppercase">
-              {order.payment_method}
+            <span className="rounded-full bg-accent px-2 py-0.5">
+              {order.delivery_mode === "walk" ? "🚶 Walkable" : "🛵 Vehicle needed"}
             </span>
             {mins !== null && (
               <span className="rounded-full bg-accent px-2 py-0.5">expires in {mins}m</span>
@@ -893,11 +895,16 @@ Thank you.`;
 
   return (
     <div className="card-elevated p-6">
-      <span
-        className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-medium ${ORDER_STATUS_TONE[order.status]}`}
-      >
-        {ORDER_STATUS_LABEL[order.status]}
-      </span>
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-medium ${ORDER_STATUS_TONE[order.status]}`}
+        >
+          {ORDER_STATUS_LABEL[order.status]}
+        </span>
+        <span className="inline-block rounded-full bg-accent px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+          {order.delivery_mode === "walk" ? "🚶 Walkable distance" : "🛵 Vehicle needed"}
+        </span>
+      </div>
       <h3 className="mt-3 text-xl font-bold">
         {order.order_description || shop?.shop_name || "Delivery"}
       </h3>

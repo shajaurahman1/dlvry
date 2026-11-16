@@ -19,7 +19,7 @@ function genOtp(): string {
 const CreateOrderInput = z.object({
   customer_name: z.string().trim().min(1),
   customer_phone: z.string().trim().min(1),
-  customer_address: z.string().trim().min(1),
+  customer_address: z.string().trim().default(""),
   order_description: z.string().trim().optional(),
   order_amount: z.number().nonnegative(),
   delivery_charge: z.number().gt(10, "Delivery charge must be greater than ₹10"),
@@ -29,6 +29,7 @@ const CreateOrderInput = z.object({
   customer_lat: z.number().optional(),
   customer_lng: z.number().optional(),
   payment_method: z.enum(["cash", "upi"]).default("cash"),
+  delivery_mode: z.enum(["walk", "vehicle"]).default("vehicle"),
 });
 
 export const createOrder = createServerFn({ method: "POST" })
@@ -65,8 +66,9 @@ export const createOrder = createServerFn({ method: "POST" })
       sql: `INSERT INTO orders
               (id, shop_id, customer_name, customer_phone, customer_address, order_description,
                order_amount, delivery_charge, pickup_notes, pickup_lat, pickup_lng, customer_lat,
-               customer_lng, payment_method, status, delivery_otp, expires_at, radius_km, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'searching', ?, ?, ?, ?, ?)`,
+               customer_lng, payment_method, delivery_mode, status, delivery_otp, expires_at,
+               radius_km, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'searching', ?, ?, ?, ?, ?)`,
       args: [
         id,
         context.userId,
@@ -82,6 +84,7 @@ export const createOrder = createServerFn({ method: "POST" })
         data.customer_lat ?? null,
         data.customer_lng ?? null,
         data.payment_method,
+        data.delivery_mode,
         otp,
         expiresAt,
         radiusKm,
