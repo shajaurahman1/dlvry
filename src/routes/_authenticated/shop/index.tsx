@@ -659,7 +659,8 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!f.customer_name || !f.customer_phone) return toast.error("Fill all required fields");
+    if (!f.customer_name || !f.customer_phone || !f.customer_address || !f.order_description)
+      return toast.error("Fill all required fields");
     if ((Number(f.delivery_charge) || 0) <= 10)
       return toast.error(`Delivery charge must be greater than ${symbol}10`);
     setBusy(true);
@@ -707,11 +708,12 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
           />
         </FormField>
       </div>
-      <FormField label="Delivery address (optional)">
+      <FormField label="Delivery address">
         <Textarea
           rows={2}
           value={f.customer_address}
           onChange={(e) => setF({ ...f, customer_address: e.target.value })}
+          required
         />
       </FormField>
       <FormField label="Delivery distance">
@@ -756,11 +758,12 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
           }}
         />
       </Suspense>
-      <FormField label="Order description (optional)">
+      <FormField label="Order description">
         <Textarea
           rows={2}
           value={f.order_description}
           onChange={(e) => setF({ ...f, order_description: e.target.value })}
+          required
         />
       </FormField>
       <div className="grid gap-3 md:grid-cols-2">
