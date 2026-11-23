@@ -106,8 +106,9 @@ export const createOrder = createServerFn({ method: "POST" })
             WHERE is_online = 1 AND is_busy = 0 AND approval_status = 'approved'
               AND verification_status IN ('verified', 'active')
               AND current_lat IS NOT NULL AND current_lng IS NOT NULL
-              AND (location_updated_at IS NULL OR location_updated_at > ?)`,
-      args: [staleCutoff],
+              AND (location_updated_at IS NULL OR location_updated_at > ?)
+              AND id NOT IN (SELECT driver_id FROM shop_blocked_drivers WHERE shop_id = ?)`,
+      args: [staleCutoff, context.userId],
     });
     for (const row of driversRes.rows) {
       const driverRadius = Math.min(radiusKm, Number(row.search_radius_km ?? 3));
@@ -339,8 +340,9 @@ export const getNearbyOrders = createServerFn({ method: "GET" })
             FROM orders o JOIN shopkeepers s ON s.id = o.shop_id
             WHERE o.status = 'searching' AND o.driver_id IS NULL
               AND (o.expires_at IS NULL OR o.expires_at > ?)
+              AND o.shop_id NOT IN (SELECT shop_id FROM shop_blocked_drivers WHERE driver_id = ?)
             ORDER BY o.created_at ASC LIMIT 100`,
-      args: [nowIso],
+      args: [nowIso, context.userId],
     });
 
     const driverRadius = Number(driver.search_radius_km ?? 3);
@@ -412,6 +414,21 @@ export const acceptOrder = createServerFn({ method: "POST" })
     const driver = driverRes.rows[0];
     if (!driver || driver.approval_status !== "approved" || driver.is_busy) {
       throw new Error("You can't accept orders right now.");
+    }
+
+    const orderShopRes = await db.execute({
+      sql: "SELECT shop_id FROM orders WHERE id = ?",
+      args: [data.orderId],
+    });
+    const orderShopId = orderShopRes.rows[0]?.shop_id as string | undefined;
+    if (orderShopId) {
+      const blockedRes = await db.execute({
+        sql: "SELECT 1 FROM shop_blocked_drivers WHERE shop_id = ? AND driver_id = ?",
+        args: [orderShopId, context.userId],
+      });
+      if (blockedRes.rows.length > 0) {
+        throw new Error("This shop isn't accepting orders from you right now.");
+      }
     }
 
     const now = new Date().toISOString();

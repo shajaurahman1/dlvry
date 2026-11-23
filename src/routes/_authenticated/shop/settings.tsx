@@ -2,7 +2,7 @@ import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
-import { getMyShop, upsertMyShop } from "@/lib/shop.functions";
+import { getMyShop, upsertMyShop, listBlockedDrivers, unblockDriver } from "@/lib/shop.functions";
 import { updateProfile } from "@/lib/profile.functions";
 import { errorMessage } from "@/lib/utils";
 import { AppShell } from "@/components/app-shell";
@@ -18,8 +18,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { CURRENCIES, currencyForCountry } from "@/lib/orders";
+import { CURRENCIES, currencyForCountry, timeAgo } from "@/lib/orders";
 import type { PickedLocation } from "@/components/location-picker";
+import { UserX } from "lucide-react";
 
 const LocationPicker = lazy(() =>
   import("@/components/location-picker").then((m) => ({ default: m.LocationPicker })),
@@ -65,6 +66,25 @@ function ShopSettings() {
     whatsapp: "",
   });
   const [busy, setBusy] = useState(false);
+  const [blocked, setBlocked] = useState<
+    {
+      driver_id: string;
+      driver_name: string | null;
+      driver_phone: string | null;
+      created_at: string;
+    }[]
+  >([]);
+
+  const loadBlocked = async () => {
+    const rows = await listBlockedDrivers();
+    setBlocked((rows ?? []) as typeof blocked);
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    void loadBlocked();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -307,6 +327,53 @@ function ShopSettings() {
           </Button>
         </div>
       </form>
+
+      <div className="mt-8">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold">
+          <UserX className="h-4 w-4" /> Blocked delivery partners
+        </h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          A blocked partner no longer sees your orders, but can still see and accept orders from
+          other shops. Not permanent — unblock anytime.
+        </p>
+        {blocked.length === 0 ? (
+          <p className="mt-3 text-xs text-muted-foreground">No one is blocked right now.</p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {blocked.map((b) => (
+              <div
+                key={b.driver_id}
+                className="card-soft flex items-center justify-between gap-3 p-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{b.driver_name || "Unknown"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {b.driver_phone ? `${b.driver_phone} · ` : ""}
+                    Blocked {timeAgo(b.created_at)}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 rounded-full"
+                  onClick={async () => {
+                    try {
+                      await unblockDriver({ data: { driverId: b.driver_id } });
+                      toast.success("Unblocked");
+                      void loadBlocked();
+                    } catch (err) {
+                      toast.error(errorMessage(err, "Failed to unblock"));
+                    }
+                  }}
+                >
+                  Unblock
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </AppShell>
   );
 }
