@@ -149,3 +149,54 @@ export const setShopkeeperStatus = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+/** A shop-only block — this driver stops seeing this shop's orders and
+ *  this shop stops being alerted to notify them, but the driver is
+ *  otherwise untouched: still online, still sees every other shop's
+ *  orders. Reversible any time via unblockDriver; nothing here is a
+ *  platform-wide ban. */
+export const blockDriver = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { driverId: string }) => input)
+  .handler(async ({ context, data }) => {
+    const { requireRole, nowIso } = await import("@/integrations/turso/profile-helpers.server");
+    await requireRole(context.userId, "shopkeeper");
+    const { db } = await import("@/integrations/turso/client.server");
+    await db.execute({
+      sql: "INSERT INTO shop_blocked_drivers (shop_id, driver_id, created_at) VALUES (?, ?, ?) ON CONFLICT(shop_id, driver_id) DO NOTHING",
+      args: [context.userId, data.driverId, nowIso()],
+    });
+    return { ok: true };
+  });
+
+export const unblockDriver = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { driverId: string }) => input)
+  .handler(async ({ context, data }) => {
+    const { requireRole } = await import("@/integrations/turso/profile-helpers.server");
+    await requireRole(context.userId, "shopkeeper");
+    const { db } = await import("@/integrations/turso/client.server");
+    await db.execute({
+      sql: "DELETE FROM shop_blocked_drivers WHERE shop_id = ? AND driver_id = ?",
+      args: [context.userId, data.driverId],
+    });
+    return { ok: true };
+  });
+
+export const listBlockedDrivers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { requireRole, toPlainRows } =
+      await import("@/integrations/turso/profile-helpers.server");
+    await requireRole(context.userId, "shopkeeper");
+    const { db } = await import("@/integrations/turso/client.server");
+    const res = await db.execute({
+      sql: `SELECT b.driver_id, b.created_at, p.full_name AS driver_name, p.phone AS driver_phone
+            FROM shop_blocked_drivers b
+            JOIN profiles p ON p.id = b.driver_id
+            WHERE b.shop_id = ?
+            ORDER BY b.created_at DESC`,
+      args: [context.userId],
+    });
+    return toPlainRows(res.rows);
+  });

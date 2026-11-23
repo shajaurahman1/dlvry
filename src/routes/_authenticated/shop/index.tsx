@@ -2,7 +2,7 @@ import { pageHead } from "@/lib/metadata";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
-import { getMyShop } from "@/lib/shop.functions";
+import { getMyShop, blockDriver } from "@/lib/shop.functions";
 import { errorMessage } from "@/lib/utils";
 import {
   listShopOrders,
@@ -54,6 +54,7 @@ import {
   Trash2,
   MessageCircle,
   FileText,
+  UserX,
 } from "lucide-react";
 import { OrderDetailsReport } from "@/components/order-details-report";
 import {
@@ -496,6 +497,19 @@ function ShopOrderCard({
     }
   };
 
+  const block = async () => {
+    if (!order.driver_id) return;
+    setBusy(true);
+    try {
+      await blockDriver({ data: { driverId: order.driver_id } });
+      toast.success("Blocked — they won't see your orders anymore");
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to block"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const searching = SEARCHING_STATUSES.includes(order.status);
   const mins = minutesLeft(order.expires_at);
   const showOtp = !TERMINAL_STATUSES.includes(order.status) && !searching && order.delivery_otp;
@@ -552,6 +566,32 @@ function ShopOrderCard({
                 </>
               )}
             </p>
+          )}
+          {order.driver_id && !searching && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-destructive hover:underline"
+                >
+                  <UserX className="h-3 w-3" /> Block this partner
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Block {order.driver_name || "this partner"}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    They'll stop seeing your orders, but can still accept orders from other shops —
+                    this isn't a platform-wide ban. You can unblock them anytime from Settings.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={block}>Block</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
         <div className="text-right">
