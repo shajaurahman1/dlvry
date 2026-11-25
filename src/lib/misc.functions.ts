@@ -42,7 +42,9 @@ export const submitRating = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { db } = await import("@/integrations/turso/client.server");
 
-    const order = (await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [data.order_id] })).rows[0];
+    const order = (
+      await db.execute({ sql: "SELECT * FROM orders WHERE id = ?", args: [data.order_id] })
+    ).rows[0];
     if (!order) throw new Error("Order not found.");
     const isParty = order.shop_id === context.userId || order.driver_id === context.userId;
     if (!isParty) throw new Error("You weren't part of this order.");
@@ -57,7 +59,14 @@ export const submitRating = createServerFn({ method: "POST" })
     try {
       await tx.execute({
         sql: "INSERT OR IGNORE INTO ratings (id, order_id, rater_id, ratee_id, stars, review) VALUES (?, ?, ?, ?, ?, ?)",
-        args: [crypto.randomUUID(), data.order_id, context.userId, data.ratee_id, data.stars, data.review ?? null],
+        args: [
+          crypto.randomUUID(),
+          data.order_id,
+          context.userId,
+          data.ratee_id,
+          data.stars,
+          data.review ?? null,
+        ],
       });
       const agg = await tx.execute({
         sql: "SELECT COUNT(*) as cnt, AVG(stars) as avg FROM ratings WHERE ratee_id = ?",
@@ -111,7 +120,8 @@ export const listMyComplaints = createServerFn({ method: "GET" })
 export const listAllComplaints = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { requireAdmin, toPlainRows } = await import("@/integrations/turso/profile-helpers.server");
+    const { requireAdmin, toPlainRows } =
+      await import("@/integrations/turso/profile-helpers.server");
     await requireAdmin(context.userId);
     const { db } = await import("@/integrations/turso/client.server");
     const res = await db.execute("SELECT * FROM complaints ORDER BY created_at DESC LIMIT 200");
@@ -120,7 +130,9 @@ export const listAllComplaints = createServerFn({ method: "GET" })
 
 export const updateComplaintStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: { id: string; status: "open" | "resolved" | "closed"; admin_notes?: string }) => input)
+  .validator(
+    (input: { id: string; status: "open" | "resolved" | "closed"; admin_notes?: string }) => input,
+  )
   .handler(async ({ context, data }) => {
     const { requireAdmin, nowIso } = await import("@/integrations/turso/profile-helpers.server");
     await requireAdmin(context.userId);
@@ -167,11 +179,18 @@ export const updateSettings = createServerFn({ method: "POST" })
               notifications_enabled = COALESCE(?, notifications_enabled),
               latest_version_code = COALESCE(?, latest_version_code),
               update_message = COALESCE(?, update_message),
+              latest_version_set_at = CASE WHEN ? IS NOT NULL THEN ? ELSE latest_version_set_at END,
               updated_at = ? WHERE id = 1`,
       args: [
-        data.delivery_radius_km ?? null, data.request_expiry_minutes ?? null, data.support_number ?? null,
+        data.delivery_radius_km ?? null,
+        data.request_expiry_minutes ?? null,
+        data.support_number ?? null,
         data.notifications_enabled === undefined ? null : data.notifications_enabled ? 1 : 0,
-        data.latest_version_code ?? null, data.update_message ?? null, nowIso(),
+        data.latest_version_code ?? null,
+        data.update_message ?? null,
+        data.latest_version_code ?? null,
+        nowIso(),
+        nowIso(),
       ],
     });
     return { ok: true };
@@ -179,22 +198,33 @@ export const updateSettings = createServerFn({ method: "POST" })
 
 /** Public, unauthenticated on purpose — the installed app needs to check
  *  this before (or without) anyone being signed in. Only ever exposes the
- *  two version-check fields, never the rest of app_settings. */
-export const getAppVersionInfo = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const { db } = await import("@/integrations/turso/client.server");
-    const res = await db.execute("SELECT latest_version_code, update_message FROM app_settings WHERE id = 1");
-    const row = res.rows[0];
-    return {
-      latest_version_code: Number(row?.latest_version_code ?? 0),
-      update_message: (row?.update_message as string | null) ?? null,
-    };
-  });
+ *  two version-check fields, never the rest of app_settings.
+ *
+ *  Google Play's review can take hours after a new AAB is uploaded, so
+ *  flipping latest_version_code the moment a build goes green would nag
+ *  people to "Update" before the Play Store actually has anything new to
+ *  give them. Withhold the bump for 3 hours after it's set (tracked by
+ *  latest_version_set_at) so the Play listing has time to catch up first. */
+export const getAppVersionInfo = createServerFn({ method: "GET" }).handler(async () => {
+  const { db } = await import("@/integrations/turso/client.server");
+  const res = await db.execute(
+    "SELECT latest_version_code, update_message, latest_version_set_at FROM app_settings WHERE id = 1",
+  );
+  const row = res.rows[0];
+  const setAt = row?.latest_version_set_at as string | null;
+  const delayMs = 3 * 60 * 60 * 1000;
+  const stillDelayed = setAt ? Date.now() - new Date(setAt).getTime() < delayMs : false;
+  return {
+    latest_version_code: stillDelayed ? 0 : Number(row?.latest_version_code ?? 0),
+    update_message: (row?.update_message as string | null) ?? null,
+  };
+});
 
 export const listAdminLogs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { requireAdmin, toPlainRows } = await import("@/integrations/turso/profile-helpers.server");
+    const { requireAdmin, toPlainRows } =
+      await import("@/integrations/turso/profile-helpers.server");
     await requireAdmin(context.userId);
     const { db } = await import("@/integrations/turso/client.server");
     const res = await db.execute("SELECT * FROM admin_logs ORDER BY created_at DESC LIMIT 200");

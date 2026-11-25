@@ -299,12 +299,12 @@ function ShopDashboard() {
             disabled={shop.approval_status === "blocked"}
             className="mb-8 h-16 w-full rounded-2xl text-base font-bold shadow-soft"
           >
-            <Plus className="mr-2 h-5 w-5" /> NEW ORDER REQUEST
+            <Plus className="mr-2 h-5 w-5" /> NEW DELIVERY REQUEST
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>New order request</DialogTitle>
+            <DialogTitle>New delivery request</DialogTitle>
           </DialogHeader>
           <NewOrderForm
             shop={shop}
@@ -701,8 +701,8 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
     e.preventDefault();
     if (!f.customer_name || !f.customer_phone || !f.customer_address || !f.order_description)
       return toast.error("Fill all required fields");
-    if ((Number(f.delivery_charge) || 0) <= 10)
-      return toast.error(`Delivery charge must be greater than ${symbol}10`);
+    if ((Number(f.delivery_charge) || 0) < 0)
+      return toast.error(`Delivery charge can't be negative`);
     setBusy(true);
     try {
       await createOrderFn({
@@ -816,10 +816,10 @@ function NewOrderForm({ shop, onCreated }: { shop: Shop; onCreated: () => void }
             required
           />
         </FormField>
-        <FormField label={`Delivery charge (${symbol}, above 10)`}>
+        <FormField label={`Delivery charge (${symbol})`}>
           <Input
             type="number"
-            min="11"
+            min="0"
             placeholder="e.g. 30"
             value={f.delivery_charge}
             onChange={(e) => setF({ ...f, delivery_charge: e.target.value })}
