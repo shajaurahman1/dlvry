@@ -378,8 +378,11 @@ export const getNearbyOrders = createServerFn({ method: "GET" })
 
 /** Just a count, nothing else — mirrors getNearbyOnlineDriverCount but for
  *  a driver looking the other way: how many approved shops are within
- *  3km of them right now, so they have a sense of whether it's worth
- *  staying online here. No shop names or addresses, just the number. */
+ *  their own alert radius right now, so they have a sense of whether
+ *  it's worth staying online here. Uses the same search_radius_km as
+ *  getNearbyOrders (not a hardcoded distance) so this number and the
+ *  actual order list always agree on what "nearby" means. No shop names
+ *  or addresses, just the number. */
 export const getNearbyActiveShopCount = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .validator((input: { lat: number; lng: number }) => input)
@@ -387,13 +390,19 @@ export const getNearbyActiveShopCount = createServerFn({ method: "GET" })
     const { requireRole } = await import("@/integrations/turso/profile-helpers.server");
     await requireRole(context.userId, "driver");
     const { db } = await import("@/integrations/turso/client.server");
+    const driverRes = await db.execute({
+      sql: "SELECT search_radius_km FROM drivers WHERE id = ?",
+      args: [context.userId],
+    });
+    const radiusKm = Number(driverRes.rows[0]?.search_radius_km ?? 3);
     const shopsRes = await db.execute({
       sql: `SELECT latitude, longitude FROM shopkeepers
             WHERE approval_status = 'approved'
               AND latitude IS NOT NULL AND longitude IS NOT NULL`,
     });
     const count = shopsRes.rows.filter(
-      (row) => haversineKm(data.lat, data.lng, Number(row.latitude), Number(row.longitude)) <= 3,
+      (row) =>
+        haversineKm(data.lat, data.lng, Number(row.latitude), Number(row.longitude)) <= radiusKm,
     ).length;
     return { count };
   });
