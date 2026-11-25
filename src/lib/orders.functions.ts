@@ -22,7 +22,7 @@ const CreateOrderInput = z.object({
   customer_address: z.string().trim().min(1),
   order_description: z.string().trim().min(1),
   order_amount: z.number().nonnegative(),
-  delivery_charge: z.number().gt(10, "Delivery charge must be greater than ₹10"),
+  delivery_charge: z.number().nonnegative(),
   pickup_notes: z.string().trim().optional(),
   pickup_lat: z.number(),
   pickup_lng: z.number(),
