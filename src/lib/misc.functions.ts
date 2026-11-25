@@ -148,9 +148,10 @@ export const updateComplaintStatus = createServerFn({ method: "POST" })
 
 export const getSettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => {
+  .handler(async ({ context }) => {
+    const { requireAdmin, toPlain } = await import("@/integrations/turso/profile-helpers.server");
+    await requireAdmin(context.userId);
     const { db } = await import("@/integrations/turso/client.server");
-    const { toPlain } = await import("@/integrations/turso/profile-helpers.server");
     const res = await db.execute("SELECT * FROM app_settings WHERE id = 1");
     return toPlain(res.rows[0]);
   });
